@@ -76,6 +76,10 @@ label,legend{display:block;font-size:14px;color:var(--mute);margin:10px 0 4px;pa
 .leaflet-container{font:inherit}
 .legend{display:flex;gap:14px;flex-wrap:wrap;font-size:13px;color:var(--mute);margin:4px 0 0}
 .legend i{display:inline-block;width:12px;height:12px;border-radius:3px;margin-right:5px;vertical-align:-1px}
+.intro{position:fixed;inset:0;z-index:50;background:#000;transition:opacity .6s}
+.intro video{width:100%;height:100%;object-fit:cover;display:block}
+.intro p{position:absolute;left:0;right:0;bottom:calc(18px + env(safe-area-inset-bottom));margin:0;text-align:center;color:#fff;font-size:13px;opacity:.75;text-shadow:0 1px 4px #000}
+.intro.out{opacity:0;pointer-events:none}
 </style>
 </head>
 <body>
@@ -139,6 +143,8 @@ label,legend{display:block;font-size:14px;color:var(--mute);margin:10px 0 4px;pa
   <div class="row"><button class="btn p" id="gok" type="button">Entrar</button></div>
   <p class="small" id="gmsg" aria-live="polite"></p>
 </div></div>
+
+<div class="intro hide" id="intro"><video id="iv" muted playsinline preload="auto"></video><p>toque duas vezes para pular</p></div>
 
 <div class="pdfv hide" id="pdfv" role="dialog" aria-modal="true">
   <div class="pdfbar"><b id="pdft">Autorização</b><button class="btn p" id="pdfx" type="button">Fechar</button></div>
@@ -325,8 +331,25 @@ async function carregarFila(){
   }catch(e){$('fmsg').textContent='Fila indisponível: '+e.message}
 }
 
+/* ---------- abertura ---------- */
+const IDB=()=>new Promise((ok,er)=>{const r=indexedDB.open('vl',1);r.onupgradeneeded=()=>r.result.createObjectStore('f');r.onsuccess=()=>ok(r.result);r.onerror=()=>er(r.error)});
+async function idbGet(k){try{const d=await IDB();return await new Promise(ok=>{const q=d.transaction('f').objectStore('f').get(k);q.onsuccess=()=>ok(q.result||null);q.onerror=()=>ok(null)})}catch(e){return null}}
+async function idbSet(k,v){try{const d=await IDB();await new Promise(ok=>{const t=d.transaction('f','readwrite');t.objectStore('f').put(v,k);t.oncomplete=ok;t.onerror=ok})}catch(e){}}
+function fecharIntro(){const el=$('intro');if(el.classList.contains('hide'))return;el.classList.add('out');const v=$('iv');setTimeout(()=>{el.classList.add('hide');try{v.pause();URL.revokeObjectURL(v.src)}catch(e){}v.removeAttribute('src')},650)}
+async function abertura(){
+  let visto=false;try{visto=sessionStorage.getItem('vl_intro')==='1'}catch(e){}
+  const k=matchMedia('(orientation: portrait)').matches?'v':'h',salvo=await idbGet('intro-'+k);
+  if(!salvo){apiGet({acao:'intro',v:k}).then(j=>{const b=atob(j.b64),a=new Uint8Array(b.length);for(let i=0;i<b.length;i++)a[i]=b.charCodeAt(i);idbSet('intro-'+k,{ver:j.ver,blob:new Blob([a],{type:'video/mp4'})})}).catch(()=>{});return}
+  if(visto)return;try{sessionStorage.setItem('vl_intro','1')}catch(e){}
+  const el=$('intro'),v=$('iv');v.src=URL.createObjectURL(salvo.blob);el.classList.remove('hide','out');
+  v.onended=fecharIntro;v.onerror=fecharIntro;v.play().catch(fecharIntro);
+  let ult=0;el.addEventListener('touchend',e=>{const t=Date.now();if(t-ult<350){e.preventDefault();fecharIntro()}ult=t});el.addEventListener('dblclick',fecharIntro);
+  setTimeout(fecharIntro,60000);
+}
+
 /* ---------- início ---------- */
 async function iniciar(){
+  abertura();
   try{const c=LS.get('vl_base');if(c){BASE=JSON.parse(c);desenhar()}}catch(e){}
   try{EU=await apiGet({acao:'ping'})}catch(e){if(/código|bloqueado/.test(e.message)){pedirConfig(e.message);return}}
   try{const j=await apiGet({acao:'base'});BASE=j.base;LS.set('vl_base',JSON.stringify(BASE));
