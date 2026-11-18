@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Voo Liberado</title>
+<meta name="theme-color" content="#d6127e">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Voo Liberado">
+<meta name="robots" content="noindex,nofollow">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icone-180.png">
+<link rel="icon" href="icone-180.png">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<link href="https://fonts.googleapis.com/css2?family=Overpass:wght@400;600;800&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#f6f7f2;--card:#fff;--ink:#13242e;--mute:#5b6b73;--line:#d9dfd8;--mag:#d6127e;--ok:#1f6fd1;--warn:#c25a00}
+@media(prefers-color-scheme:dark){:root{--bg:#0d1c24;--card:#132a35;--ink:#e9f1f4;--mute:#93a8b2;--line:#24414f}}
+*{box-sizing:border-box;min-width:0}
+html,body{margin:0;height:100%}
+body{background:var(--bg);color:var(--ink);font:16px/1.5 Overpass,system-ui,sans-serif;overflow-x:clip}
+#map{position:fixed;inset:0 0 auto 0;height:52vh;height:52dvh;z-index:1;background:#bfe3ee}
+.top{position:fixed;z-index:5;left:0;right:0;top:0;padding:calc(env(safe-area-inset-top) + 8px) 10px 0;display:flex;gap:8px}
+.top input{flex:1;min-height:46px;border-radius:14px;border:1px solid var(--line);background:var(--card);color:var(--ink);padding:10px 14px;font:inherit;font-size:16px;box-shadow:0 2px 10px rgba(0,0,0,.18)}
+.fab{width:46px;height:46px;border-radius:14px;border:0;background:var(--card);color:var(--ink);box-shadow:0 2px 10px rgba(0,0,0,.18);display:grid;place-items:center;cursor:pointer;flex:none}
+.fab svg{width:22px;height:22px}
+.fab.on{background:var(--mag);color:#fff}
+.sug{position:fixed;z-index:6;left:10px;right:66px;top:calc(env(safe-area-inset-top) + 60px);background:var(--card);border-radius:14px;box-shadow:0 6px 24px rgba(0,0,0,.25);overflow:hidden;list-style:none;margin:0;padding:0}
+.sug li{padding:11px 14px;border-top:1px solid var(--line);cursor:pointer;font-size:15px}.sug li:first-child{border-top:0}
+.sug small{display:block;color:var(--mute);font-size:13px}
+.sheet{position:relative;z-index:3;margin-top:calc(52vh - 18px);margin-top:calc(52dvh - 18px);background:var(--bg);border-radius:20px 20px 0 0;padding:14px 16px calc(40px + env(safe-area-inset-bottom));min-height:50vh;box-shadow:0 -6px 20px rgba(0,0,0,.18)}
+.grab{width:42px;height:5px;border-radius:9px;background:var(--line);margin:0 auto 10px}
+h1{font-size:30px;line-height:1.05;margin:2px 0 4px;font-weight:800;text-wrap:balance}
+h2{font-size:19px;margin:0 0 6px}
+.sub{color:var(--mute);margin:0 0 12px;font-size:15px}
+.slide{position:relative;margin:14px 0;height:62px;border-radius:999px;background:var(--card);border:1px solid var(--line);overflow:hidden;touch-action:none;user-select:none;-webkit-user-select:none}
+.slide .txt{position:absolute;inset:0;display:grid;place-items:center;font-weight:600;color:var(--mute);padding-left:56px}
+.slide .fill{position:absolute;inset:0 auto 0 0;background:var(--mag);opacity:.18;width:0}
+.knob{position:absolute;top:4px;left:4px;width:54px;height:54px;border-radius:50%;background:var(--mag);display:grid;place-items:center;cursor:grab}
+.knob svg{width:26px;height:26px}
+.slide.off{opacity:.45;pointer-events:none}
+.card{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:16px;margin:12px 0}
+.big{font-size:38px;font-weight:800;letter-spacing:.04em;line-height:1.05}
+.st{display:inline-block;border-radius:999px;padding:3px 10px;font-size:13px;font-weight:600;color:#fff;background:var(--ok);white-space:nowrap}
+.st.w{background:var(--warn)}.st.m{background:var(--mag)}
+dl{display:grid;grid-template-columns:auto minmax(0,1fr);gap:4px 14px;margin:12px 0 0;font-size:15px}
+dt{color:var(--mute)}dd{margin:0;overflow-wrap:anywhere}
+.btn{min-height:44px;border-radius:12px;border:1px solid var(--line);background:var(--card);color:var(--ink);padding:10px 14px;font:inherit;font-weight:600;cursor:pointer;text-decoration:none;display:inline-flex;align-items:center}
+.btn.p{background:var(--mag);border-color:var(--mag);color:#fff}
+.btn:focus-visible,input:focus-visible{outline:3px solid var(--ok);outline-offset:2px}
+.row{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+.chips{display:flex;gap:8px;overflow-x:auto;padding-bottom:4px;margin:0 0 12px;-webkit-overflow-scrolling:touch}
+.chips .btn{flex:none;font-size:14px}
+label,legend{display:block;font-size:14px;color:var(--mute);margin:10px 0 4px;padding:0}
+.f input{width:100%;min-height:44px;font:inherit;font-size:16px;border-radius:12px;border:1px solid var(--line);background:var(--bg);color:var(--ink);padding:10px 12px}
+.seg{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;border:0;padding:0;margin:0}
+.seg.two{grid-template-columns:repeat(2,minmax(0,1fr))}
+.seg input{position:absolute;opacity:0;width:1px;height:1px}
+.seg label{margin:0;display:grid;place-items:center;text-align:center;min-height:44px;border-radius:12px;border:1px solid var(--line);background:var(--bg);color:var(--ink);font-size:14px;font-weight:600;line-height:1.2;padding:6px;cursor:pointer}
+.seg input:checked+label{background:var(--mag);border-color:var(--mag);color:#fff}
+.small{font-size:13px;color:var(--mute)}
+.hide{display:none!important}
+.list{list-style:none;padding:0;margin:8px 0 0}
+.list li{display:flex;justify-content:space-between;gap:10px;padding:10px 0;border-top:1px solid var(--line);font-size:15px}
+.list li:first-child{border-top:0}
+.gate{position:fixed;inset:0;z-index:20;background:var(--bg);display:grid;place-items:center;padding:24px}
+.gate .card{width:min(420px,100%)}
+.pdfv{position:fixed;inset:0;z-index:30;background:rgba(10,20,26,.94);display:flex;flex-direction:column;padding-top:env(safe-area-inset-top)}
+.pdfbar{display:flex;align-items:center;gap:8px;padding:10px 12px;background:var(--card)}
+.pdfbar b{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pdfpages{flex:1;overflow:auto;padding:12px;display:flex;flex-direction:column;align-items:center;gap:12px}
+.pdfpages canvas{width:100%;max-width:820px;height:auto;background:#fff;border-radius:6px}
+.pdfpages p{color:#e9f1f4;text-align:center}
+.leaflet-container{font:inherit}
+.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:13px;color:var(--mute);margin:4px 0 0}
+.legend i{display:inline-block;width:12px;height:12px;border-radius:3px;margin-right:5px;vertical-align:-1px}
+</style>
+</head>
+<body>
+<div id="map"></div>
+<div class="top">
+  <input id="q" type="search" placeholder="Buscar lugar: MASP, Allianz Parque, endereço…" enterkeyhint="search" autocomplete="off">
+  <button class="fab" id="sat" aria-label="Alternar satélite"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3l9 5-9 5-9-5 9-5z"/><path d="M3 13l9 5 9-5"/></svg></button>
+  <button class="fab" id="gps" aria-label="Minha localização"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="4"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg></button>
+</div>
+<ul class="sug hide" id="sug"></ul>
+
+<section class="sheet">
+  <div class="grab"></div>
+  <h1 id="ttl">Posso voar aqui?</h1>
+  <p class="sub" id="sub">Toque no alvo para usar o GPS, busque um lugar ou toque no mapa.</p>
+  <div class="legend"><span><i style="background:rgba(31,111,209,.35);border:1px solid #1f6fd1"></i>Pedidos vigentes</span><span><i style="background:rgba(214,18,126,.35);border:1px solid #d6127e"></i>Selecionado</span></div>
+
+  <div class="slide off" id="slide"><div class="fill" id="fill"></div><div class="txt" id="stxt">deslize para liberar o voo</div>
+    <div class="knob" id="knob" tabindex="0"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round"><path d="M9 5l7 7-7 7"/></svg></div></div>
+
+  <section class="card hide" id="res"></section>
+
+  <section class="card hide f" id="novo">
+    <h2>Pedir voo neste local</h2>
+    <p class="small">Vai para a fila. Eu faço o pedido no SARPAS pela conta HEITOR FPV. Sem L-ponto na análise, o pedido sai com 120 m.</p>
+    <form id="fnovo">
+      <label for="nnome">Nome da operação</label><input id="nnome" placeholder="Ex.: Pinheiros – cliente X">
+      <label for="ndata">Data de início</label><input id="ndata" type="date">
+      <label for="nfim">Data de término (opcional — vazio = 90 dias)</label><input id="nfim" type="date">
+      <fieldset class="seg two"><legend>Se aparecer L-ponto</legend>
+        <input type="radio" name="nlp" id="lpa" value="abaixo" checked><label for="lpa">Ficar abaixo do L-ponto</label>
+        <input type="radio" name="nlp" id="lpc" value="acima"><label for="lpc">Voar acima (com Termo)</label>
+      </fieldset>
+      <p class="small" id="lpinfo">Altura pelo L-ponto mais baixo, com folga de 2 m, arredondada para baixo (34 m livres → 30 m). Sem L-ponto: 120 m.</p>
+      <div id="lpbox" class="hide"><label for="nalt">Altura desejada (m AGL, até 120)</label><input id="nalt" type="number" min="1" max="120" inputmode="numeric"></div>
+      <fieldset class="seg"><legend>Tipo de pedido</legend>
+        <input type="radio" name="nperfil" id="pe" value="Entorno de Estrutura"><label for="pe">Entorno</label>
+        <input type="radio" name="nperfil" id="pp" value="Padrão"><label for="pp">Padrão</label>
+        <input type="radio" name="nperfil" id="pa" value="Os dois" checked><label for="pa">Os dois</label>
+      </fieldset>
+      <label for="nobs">Observações</label><input id="nobs" placeholder="Horário, cliente, altura desejada…">
+      <div class="row"><button class="btn p" type="submit">Enviar para a fila</button></div>
+      <p class="small" id="nmsg" aria-live="polite"></p>
+    </form>
+  </section>
+
+  <section class="card">
+    <h2>Fila de pedidos novos</h2>
+    <p class="small" id="fmsg">Carregando…</p>
+    <ul class="list" id="flist"></ul>
+  </section>
+  <p class="small" id="info"></p>
+  <p class="small"><a href="#" id="sair">Trocar código / servidor</a></p>
+</section>
+
+<div class="gate hide" id="gate"><div class="card f">
+  <h2>Voo Liberado</h2>
+  <p class="small">Configuração única neste celular. Fica salva só aqui.</p>
+  <label for="gapi">Endereço do servidor (Apps Script)</label><input id="gapi" placeholder="https://script.google.com/macros/s/…/exec" autocomplete="off">
+  <label for="gcod">Código do app</label><input id="gcod" placeholder="VOO-XXXX-XXXX" autocapitalize="characters" autocomplete="off">
+  <div class="row"><button class="btn p" id="gok" type="button">Entrar</button></div>
+  <p class="small" id="gmsg" aria-live="polite"></p>
+</div></div>
+
+<div class="pdfv hide" id="pdfv" role="dialog" aria-modal="true">
+  <div class="pdfbar"><b id="pdft">Autorização</b><button class="btn p" id="pdfx" type="button">Fechar</button></div>
+  <div class="pdfpages" id="pdfp"></div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script>
+{
+const $=id=>document.getElementById(id);
+const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const LS={get:k=>{try{return localStorage.getItem(k)}catch(e){return null}},set:(k,v)=>{try{localStorage.setItem(k,v)}catch(e){}},del:k=>{try{localStorage.removeItem(k)}catch(e){}}};
+let API=LS.get('vl_api'),COD=LS.get('vl_cod');
+let BASE=[],LIVE=[],pos=null,hit=null,gpsOn=false,watch=null;
+const hoje=new Date(Date.now()-3*3600e3).toISOString().slice(0,10);
+const ok=p=>/aprovado/i.test(p.st)&&!/negado/i.test(p.st);
+const vig=p=>p.ini<=hoje&&hoje<=p.fim;
+const br=d=>d?d.split('-').reverse().join('/'):'';
+const fmtD=m=>m<1000?Math.round(m)+' m':(m/1000).toFixed(1).replace('.',',')+' km';
+
+/* ---------- servidor ---------- */
+async function apiGet(params){
+  const u=new URL(API);Object.entries({...params,codigo:COD}).forEach(([k,v])=>u.searchParams.set(k,v));
+  const r=await fetch(u,{redirect:'follow'});const j=await r.json();if(!j.ok)throw new Error(j.erro||'erro');return j;
+}
+async function apiPost(body){
+  const r=await fetch(API,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({...body,codigo:COD}),redirect:'follow'});
+  const j=await r.json();if(!j.ok)throw new Error(j.erro||'erro');return j;
+}
+
+/* ---------- mapa ---------- */
+const map=L.map('map',{zoomControl:false,attributionControl:true}).setView([-23.5505,-46.6333],12);
+const ruas=L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'© OpenStreetMap'}).addTo(map);
+const sat=L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{maxZoom:19,attribution:'© Esri'});
+let satOn=false;$('sat').onclick=()=>{satOn=!satOn;if(satOn){map.removeLayer(ruas);sat.addTo(map)}else{map.removeLayer(sat);ruas.addTo(map)}$('sat').classList.toggle('on',satOn)};
+const camada=L.layerGroup().addTo(map);let eu=null,euCirc=null,alvo=null;
+const ll=g=>g.map(poly=>poly.map(r=>r.map(q=>[q[1],q[0]])));
+function desenhar(){
+  camada.clearLayers();
+  BASE.filter(b=>ok(b)&&vig(b)).forEach(b=>{
+    const sel=b===hit,cobre=LIVE.includes(b);
+    const pl=L.polygon(ll(b.geo),{color:sel?'#d6127e':'#1f6fd1',weight:sel?3:cobre?2:1,fillOpacity:sel?.22:cobre?.16:.08,fillColor:sel?'#d6127e':'#1f6fd1'});
+    pl.bindTooltip(`${b.p} · ${b.alt} m`,{sticky:true});
+    pl.on('click',e=>{L.DomEvent.stopPropagation(e);verificar([e.latlng.lng,e.latlng.lat],false);});
+    pl.addTo(camada);
+  });
+  if(hit)camada.eachLayer(l=>{if(l.options.color==='#d6127e')l.bringToFront()});
+}
+map.on('click',e=>verificar([e.latlng.lng,e.latlng.lat],false));
+
+/* ---------- geometria ---------- */
+function inRing(x,y,r){let c=false;for(let i=0,j=r.length-1;i<r.length;j=i++){const[xi,yi]=r[i],[xj,yj]=r[j];if((yi>y)!=(yj>y)&&x<(xj-xi)*(y-yi)/(yj-yi)+xi)c=!c}return c}
+const inGeo=(lon,lat,g)=>g.some(poly=>inRing(lon,lat,poly[0])&&!poly.slice(1).some(h=>inRing(lon,lat,h)));
+function dist(a,b){const R=6371e3,r=Math.PI/180,dl=(b[1]-a[1])*r,dn=(b[0]-a[0])*r,h=Math.sin(dl/2)**2+Math.cos(a[1]*r)*Math.cos(b[1]*r)*Math.sin(dn/2)**2;return 2*R*Math.asin(Math.sqrt(h))}
+function edgeDist(pt,g){let m=1e12;for(const poly of g)for(const p of poly[0]){const d=dist(pt,p);if(d<m)m=d}return m}
+
+/* ---------- verificar ponto ---------- */
+function verificar(p,centrar=true){
+  pos=p;
+  const cands=BASE.filter(b=>inGeo(p[0],p[1],b.geo));
+  LIVE=cands.filter(b=>ok(b)&&vig(b)).sort((a,b)=>b.alt-a.alt||b.fim.localeCompare(a.fim));
+  hit=LIVE[0]||null;
+  if(alvo)map.removeLayer(alvo);
+  alvo=L.circleMarker([p[1],p[0]],{radius:9,color:'#fff',weight:3,fillColor:'#d6127e',fillOpacity:1}).addTo(map);
+  if(centrar)map.setView([p[1],p[0]],Math.max(map.getZoom(),15));
+  $('res').classList.add('hide');$('novo').classList.add('hide');resetSlide();
+  if(hit){
+    $('ttl').textContent='Área coberta';
+    $('sub').textContent=LIVE.length===1?'1 pedido vigente cobre este ponto.':LIVE.length+' pedidos vigentes cobrem este ponto.';
+    $('slide').classList.remove('off');$('stxt').textContent='deslize para liberar o voo';
+  }else{
+    const near=BASE.filter(b=>ok(b)&&vig(b)).map(b=>[b,edgeDist(p,b.geo)]).sort((a,b)=>a[1]-b[1])[0];
+    $('ttl').textContent='Sem pedido aqui';
+    $('sub').textContent=(cands.length?'Há pedido no local, mas vencido, futuro ou não aprovado. ':'')+(near?'O vigente mais perto está a '+fmtD(near[1])+'.':'');
+    $('slide').classList.add('off');$('stxt').textContent='nenhum pedido vigente';
+    $('novo').classList.remove('hide');if(!$('ndata').value)$('ndata').value=hoje;
+  }
+  desenhar();
+}
+
+/* ---------- resultado ---------- */
+function mostrar(){
+  const b=hit,st=/autom/i.test(b.st)?'':' w';
+  const chips=LIVE.length>1?`<p class="small" style="margin:0 0 6px">${LIVE.length} pedidos cobrem este ponto — toque em cada um:</p><div class="chips">${LIVE.map(x=>`<button type="button" class="btn${x===b?' p':''}" data-p="${esc(x.p)}">${esc(x.p)} · ${x.alt} m · ${x.tipo==='Padrão'?'Padrão':'Entorno'}</button>`).join('')}</div>`:'';
+  $('res').innerHTML=chips+`<span class="st${st}">${esc(b.st)}</span>
+  <p class="small" style="margin:10px 0 0">Protocolo SARPAS</p><div class="big">${esc(b.p)}</div>
+  <dl><dt>Operação</dt><dd>${esc(b.nome)}</dd><dt>Perfil</dt><dd>${esc(b.tipo)}</dd><dt>Altura</dt><dd>${b.alt} m ${esc(b.ref)}</dd>
+  <dt>Validade</dt><dd>${br(b.ini)} até ${br(b.fim)}</dd><dt>Horário</dt><dd>${esc(b.hor)}</dd><dt>Pilotos</dt><dd>${esc((b.pil||[]).join(', '))}</dd></dl>
+  <div class="row"><button class="btn p" id="vp" type="button">Ver autorização (PDF)</button><button class="btn" id="cp" type="button">Copiar protocolo</button>
+  <a class="btn" href="https://sarpas.decea.mil.br/consulta-protocolo?queryProtocol=${encodeURIComponent(b.p)}" target="_blank" rel="noopener">Ver no SARPAS</a></div>
+  <p class="small" id="cpm">O PDF é o documento oficial do SARPAS, com QR Code.</p>`;
+  $('res').classList.remove('hide');$('ttl').textContent='Voo liberado';
+  $('res').querySelectorAll('[data-p]').forEach(e=>e.onclick=()=>{hit=LIVE.find(x=>x.p===e.dataset.p)||hit;mostrar();desenhar();
+    const pl=L.polygon(ll(hit.geo));map.fitBounds(pl.getBounds(),{padding:[20,20],maxZoom:17})});
+  $('vp').onclick=()=>verPDF(b.p);
+  $('cp').onclick=async()=>{try{await navigator.clipboard.writeText(b.p);$('cpm').textContent='Protocolo copiado.'}catch(e){$('cpm').textContent='Protocolo: '+b.p}};
+}
+
+/* ---------- deslizar ---------- */
+const knob=$('knob'),sl=$('slide');let drag=false,x0=0,cur=0;
+function setX(x){const max=sl.clientWidth-62;cur=Math.max(0,Math.min(max,x));knob.style.left=4+cur+'px';$('fill').style.width=(cur+58)+'px';return cur>=max-2}
+function resetSlide(){knob.style.transition='left .25s';setX(0);setTimeout(()=>knob.style.transition='',260)}
+knob.addEventListener('pointerdown',e=>{drag=true;x0=e.clientX-cur;knob.setPointerCapture(e.pointerId)});
+knob.addEventListener('pointermove',e=>{if(drag&&setX(e.clientX-x0)){drag=false;$('stxt').textContent='liberado';mostrar()}});
+knob.addEventListener('pointerup',()=>{if(drag){drag=false;resetSlide()}});
+knob.addEventListener('keydown',e=>{if(e.key==='Enter'&&hit){setX(9999);mostrar()}});
+
+/* ---------- GPS ---------- */
+$('gps').onclick=()=>{
+  if(!navigator.geolocation){$('sub').textContent='Este navegador não dá acesso ao GPS.';return}
+  $('gps').classList.add('on');$('sub').textContent='Pegando sua localização…';
+  let primeiro=true;if(watch!=null)navigator.geolocation.clearWatch(watch);
+  watch=navigator.geolocation.watchPosition(g=>{
+    const p=[g.coords.longitude,g.coords.latitude];
+    if(!eu){eu=L.circleMarker([p[1],p[0]],{radius:7,color:'#fff',weight:3,fillColor:'#1f6fd1',fillOpacity:1}).addTo(map);euCirc=L.circle([p[1],p[0]],{radius:g.coords.accuracy,color:'#1f6fd1',weight:1,fillOpacity:.08}).addTo(map)}
+    else{eu.setLatLng([p[1],p[0]]);euCirc.setLatLng([p[1],p[0]]).setRadius(g.coords.accuracy)}
+    if(primeiro){primeiro=false;verificar(p,true)}
+  },err=>{$('gps').classList.remove('on');$('sub').textContent='Sem acesso ao GPS: '+(err.code===1?'permita a localização para este app nos Ajustes.':err.message)},{enableHighAccuracy:true,maximumAge:10000,timeout:20000});
+};
+
+/* ---------- busca ---------- */
+function coordDe(s){const m=s.match(/@(-?\d+\.\d+),(-?\d+\.\d+)/)||s.match(/[?&](?:q|ll|query)=(-?\d+\.\d+),\s*(-?\d+\.\d+)/)||s.match(/^\s*(-?\d{1,2}[.,]\d+)\s*[,; ]\s*(-?\d{1,3}[.,]\d+)\s*$/);return m?[+m[2].replace(',','.'),+m[1].replace(',','.')]:null}
+let tBusca=null;
+async function buscar(final){
+  const s=$('q').value.trim();if(s.length<3){$('sug').classList.add('hide');return}
+  const c=coordDe(s);if(c){$('sug').classList.add('hide');if(final){$('q').blur();verificar(c)}return}
+  const ctr=map.getCenter(),d=0.6;
+  const u=`https://nominatim.openstreetmap.org/search?format=jsonv2&addressdetails=1&limit=6&countrycodes=br&accept-language=pt-BR&q=${encodeURIComponent(s)}&viewbox=${ctr.lng-d},${ctr.lat+d},${ctr.lng+d},${ctr.lat-d}`;
+  try{
+    const r=await (await fetch(u)).json();
+    if(!r.length){$('sug').innerHTML='<li>Nada encontrado. Tente com bairro ou cidade.</li>';$('sug').classList.remove('hide');return}
+    $('sug').innerHTML=r.map((x,i)=>{const nome=x.name||x.display_name.split(',')[0],a=x.address||{};
+      const resto=[a.road,a.house_number,a.suburb||a.neighbourhood,a.city||a.town].filter(Boolean).join(', ');
+      return `<li data-i="${i}">${esc(nome)}<small>${esc(resto||x.display_name)}</small></li>`}).join('');
+    $('sug').classList.remove('hide');
+    $('sug').querySelectorAll('li[data-i]').forEach(li=>li.onclick=()=>{const x=r[+li.dataset.i];$('sug').classList.add('hide');$('q').value=x.name||x.display_name.split(',')[0];$('q').blur();
+      if(!$('nnome').value)$('nnome').value=x.name||'';verificar([+x.lon,+x.lat])});
+  }catch(e){$('sug').innerHTML='<li>Busca indisponível agora.</li>';$('sug').classList.remove('hide')}
+}
+$('q').addEventListener('input',()=>{clearTimeout(tBusca);tBusca=setTimeout(()=>buscar(false),450)});
+$('q').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();clearTimeout(tBusca);buscar(true)}});
+map.on('movestart',()=>$('sug').classList.add('hide'));
+
+/* ---------- PDF ---------- */
+let pdfLib=null;
+const loadScript=src=>new Promise((ok,err)=>{const s=document.createElement('script');s.src=src;s.onload=ok;s.onerror=()=>err(new Error('não carregou o leitor de PDF'));document.head.appendChild(s)});
+async function verPDF(p){
+  const box=$('pdfp');$('pdft').textContent='Autorização '+p;box.innerHTML='<p>Carregando PDF…</p>';$('pdfv').classList.remove('hide');
+  try{
+    const j=await apiGet({acao:'pdf',p});
+    const bin=atob(j.b64),data=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)data[i]=bin.charCodeAt(i);
+    if(!pdfLib){const B='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/';await loadScript(B+'pdf.worker.min.js');await loadScript(B+'pdf.min.js');pdfLib=window.pdfjsLib}
+    const doc=await pdfLib.getDocument({data,isEvalSupported:false}).promise;box.innerHTML='';
+    const w=Math.min(box.clientWidth-24,820),dpr=Math.min(devicePixelRatio||1,3);
+    for(let i=1;i<=doc.numPages;i++){const pg=await doc.getPage(i),v1=pg.getViewport({scale:1}),vp=pg.getViewport({scale:w/v1.width*dpr});
+      const cv=document.createElement('canvas');cv.width=vp.width;cv.height=vp.height;box.appendChild(cv);await pg.render({canvasContext:cv.getContext('2d'),viewport:vp}).promise}
+  }catch(e){box.innerHTML='<p>Não consegui mostrar o PDF: '+esc(e.message||e)+'</p>'}
+}
+$('pdfx').onclick=()=>{$('pdfv').classList.add('hide');$('pdfp').innerHTML=''};
+
+/* ---------- pedido novo ---------- */
+document.querySelectorAll('input[name=nlp]').forEach(i=>i.addEventListener('change',()=>{const a=$('lpc').checked;$('lpbox').classList.toggle('hide',!a);
+  $('lpinfo').textContent=a?'Faço o pedido com essa altura e gero um Termo de Coordenação por L-ponto. Precisa da data de término.':'Altura pelo L-ponto mais baixo, com folga de 2 m, arredondada para baixo (34 m livres → 30 m). Sem L-ponto: 120 m.'}));
+$('fnovo').addEventListener('submit',async e=>{
+  e.preventDefault();if(!pos)return;
+  const lp=document.querySelector('input[name=nlp]:checked').value,alt=+$('nalt').value;
+  if($('nfim').value&&$('nfim').value<=$('ndata').value){$('nmsg').textContent='O término precisa ser depois do início.';return}
+  if(lp==='acima'&&!(alt>=1&&alt<=120)){$('nmsg').textContent='Informe a altura (1 a 120 m).';return}
+  if(lp==='acima'&&!$('nfim').value){$('nmsg').textContent='Para voar acima do L-ponto, preencha a data de término.';return}
+  $('nmsg').textContent='Enviando…';
+  try{await apiPost({acao:'novo',lat:pos[1],lon:pos[0],data:$('ndata').value,fim:$('nfim').value,nome:$('nnome').value.trim(),
+      perfil:document.querySelector('input[name=nperfil]:checked').value,lponto:lp,alturaAcima:lp==='acima'?alt:'',obs:$('nobs').value.trim()});
+    $('nmsg').textContent='Na fila. A tarefa agendada processa na próxima hora cheia (7h–22h).';$('fnovo').reset();$('lpbox').classList.add('hide');carregarFila()}
+  catch(err){$('nmsg').textContent='Não consegui enviar: '+err.message}
+});
+
+/* ---------- fila ---------- */
+const ST={pendente:'Na fila',processando:'Processando',aguardando_login:'Falta login',precisa_termo:'Precisa Termo',erro:'Erro',feito:'Feito'};
+async function carregarFila(){
+  try{const j=await apiGet({acao:'fila'});const f=j.fila||[];
+    $('fmsg').textContent=f.length?'':'Nenhum pedido ainda.';
+    $('flist').innerHTML=f.slice(0,12).map(r=>`<li><span>${esc(r.nome||'Sem nome')}<br><span class="small">${br(String(r.data).slice(0,10))} · ${esc(r.perfil)}${r.nota?' · '+esc(r.nota):''}</span></span><span class="st ${r.status==='feito'?'':'m'}">${esc(r.status==='feito'&&r.protocolo?r.protocolo:(ST[r.status]||r.status))}</span></li>`).join('');
+  }catch(e){$('fmsg').textContent='Fila indisponível: '+e.message}
+}
+
+/* ---------- início ---------- */
+async function iniciar(){
+  try{const c=LS.get('vl_base');if(c){BASE=JSON.parse(c);desenhar()}}catch(e){}
+  try{const j=await apiGet({acao:'base'});BASE=j.base;LS.set('vl_base',JSON.stringify(BASE));
+    $('info').textContent='Base: '+BASE.length+' pedidos, '+BASE.filter(b=>ok(b)&&vig(b)).length+' vigentes hoje ('+br(hoje)+'). Atualizada em '+new Date(j.atualizado).toLocaleString('pt-BR')+'.';
+    desenhar();if(pos)verificar(pos,false);
+  }catch(e){
+    if(/código|bloqueado/.test(e.message)){pedirConfig(e.message);return}
+    $('info').textContent=BASE.length?'Sem conexão: usando a base salva neste celular ('+BASE.length+' pedidos).':'Não consegui carregar a base: '+e.message;
+  }
+  carregarFila();
+  $('gps').click();
+}
+function pedirConfig(msg){$('gate').classList.remove('hide');$('gapi').value=API||'';$('gcod').value='';$('gmsg').textContent=msg||''}
+$('gok').onclick=async()=>{
+  API=$('gapi').value.trim();COD=$('gcod').value.trim().toUpperCase();
+  if(!/^https:\/\/script\.google(usercontent)?\.com\//.test(API)){$('gmsg').textContent='Cole o endereço que termina em /exec.';return}
+  $('gmsg').textContent='Conferindo…';
+  try{await apiGet({acao:'ping'});LS.set('vl_api',API);LS.set('vl_cod',COD);$('gate').classList.add('hide');iniciar()}
+  catch(e){$('gmsg').textContent='Não entrou: '+e.message}
+};
+$('sair').onclick=e=>{e.preventDefault();LS.del('vl_cod');pedirConfig('')};
+if(API&&COD)iniciar();else pedirConfig('');
+}
+</script>
+</body>
+</html>
