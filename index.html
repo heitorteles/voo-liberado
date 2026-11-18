@@ -152,7 +152,7 @@ const $=id=>document.getElementById(id);
 const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const LS={get:k=>{try{return localStorage.getItem(k)}catch(e){return null}},set:(k,v)=>{try{localStorage.setItem(k,v)}catch(e){}},del:k=>{try{localStorage.removeItem(k)}catch(e){}}};
 let API=LS.get('vl_api'),COD=LS.get('vl_cod');
-let BASE=[],LIVE=[],pos=null,hit=null,gpsOn=false,watch=null;
+let BASE=[],LIVE=[],pos=null,hit=null,gpsOn=false,watch=null,EU={nome:'',admin:false};
 const hoje=new Date(Date.now()-3*3600e3).toISOString().slice(0,10);
 const ok=p=>/aprovado/i.test(p.st)&&!/negado/i.test(p.st);
 const vig=p=>p.ini<=hoje&&hoje<=p.fim;
@@ -309,26 +309,28 @@ $('fnovo').addEventListener('submit',async e=>{
   if(lp==='acima'&&!(alt>=1&&alt<=120)){$('nmsg').textContent='Informe a altura (1 a 120 m).';return}
   if(lp==='acima'&&!$('nfim').value){$('nmsg').textContent='Para voar acima do L-ponto, preencha a data de término.';return}
   $('nmsg').textContent='Enviando…';
-  try{await apiPost({acao:'novo',lat:pos[1],lon:pos[0],data:$('ndata').value,fim:$('nfim').value,nome:$('nnome').value.trim(),
+  try{const rr=await apiPost({acao:'novo',lat:pos[1],lon:pos[0],data:$('ndata').value,fim:$('nfim').value,nome:$('nnome').value.trim(),
       perfil:document.querySelector('input[name=nperfil]:checked').value,lponto:lp,alturaAcima:lp==='acima'?alt:'',obs:$('nobs').value.trim()});
-    $('nmsg').textContent='Na fila. A tarefa agendada processa na próxima hora cheia (7h–22h).';$('fnovo').reset();$('lpbox').classList.add('hide');carregarFila()}
+    $('nmsg').textContent=rr.status==='aguardando_aprovacao'?'Enviado. Fica aguardando a aprovação do Heitor; depois a tarefa agendada faz o pedido.':'Na fila. A tarefa agendada processa na próxima hora cheia (7h–22h).';$('fnovo').reset();$('lpbox').classList.add('hide');carregarFila()}
   catch(err){$('nmsg').textContent='Não consegui enviar: '+err.message}
 });
 
 /* ---------- fila ---------- */
-const ST={pendente:'Na fila',processando:'Processando',aguardando_login:'Falta login',precisa_termo:'Precisa Termo',erro:'Erro',feito:'Feito'};
+const ST={aguardando_aprovacao:'Aguardando aprovação',pendente:'Na fila',processando:'Processando',aguardando_login:'Falta login',precisa_termo:'Precisa Termo',erro:'Erro',feito:'Feito'};
 async function carregarFila(){
   try{const j=await apiGet({acao:'fila'});const f=j.fila||[];
     $('fmsg').textContent=f.length?'':'Nenhum pedido ainda.';
-    $('flist').innerHTML=f.slice(0,12).map(r=>`<li><span>${esc(r.nome||'Sem nome')}<br><span class="small">${br(String(r.data).slice(0,10))} · ${esc(r.perfil)}${r.nota?' · '+esc(r.nota):''}</span></span><span class="st ${r.status==='feito'?'':'m'}">${esc(r.status==='feito'&&r.protocolo?r.protocolo:(ST[r.status]||r.status))}</span></li>`).join('');
+    $('flist').innerHTML=f.slice(0,12).map(r=>`<li><span>${esc(r.nome||'Sem nome')}<br><span class="small">${r.quem?esc(r.quem)+' · ':''}${br(String(r.data).slice(0,10))} · ${esc(r.perfil)}${r.nota?' · '+esc(r.nota):''}</span>${EU.admin&&r.status==='aguardando_aprovacao'?`<br><button class="btn p" type="button" data-ap="${esc(r.id)}" style="margin-top:6px">Aprovar pedido</button>`:''}</span><span class="st ${r.status==='feito'?'':'m'}">${esc(r.status==='feito'&&r.protocolo?r.protocolo:(ST[r.status]||r.status))}</span></li>`).join('');
+    $('flist').querySelectorAll('[data-ap]').forEach(b=>b.onclick=async()=>{b.disabled=true;b.textContent='Aprovando…';try{await apiPost({acao:'aprovar',id:b.dataset.ap});carregarFila()}catch(e){b.textContent='Erro: '+e.message}});
   }catch(e){$('fmsg').textContent='Fila indisponível: '+e.message}
 }
 
 /* ---------- início ---------- */
 async function iniciar(){
   try{const c=LS.get('vl_base');if(c){BASE=JSON.parse(c);desenhar()}}catch(e){}
+  try{EU=await apiGet({acao:'ping'})}catch(e){if(/código|bloqueado/.test(e.message)){pedirConfig(e.message);return}}
   try{const j=await apiGet({acao:'base'});BASE=j.base;LS.set('vl_base',JSON.stringify(BASE));
-    $('info').textContent='Base: '+BASE.length+' pedidos, '+BASE.filter(b=>ok(b)&&vig(b)).length+' vigentes hoje ('+br(hoje)+'). Atualizada em '+new Date(j.atualizado).toLocaleString('pt-BR')+'.';
+    $('info').textContent='Base: '+BASE.length+' pedidos, '+BASE.filter(b=>ok(b)&&vig(b)).length+' vigentes hoje ('+br(hoje)+'). Atualizada em '+new Date(j.atualizado).toLocaleString('pt-BR')+'.'+(EU.nome?' Conectado como '+EU.nome+'.':'');
     desenhar();if(pos)verificar(pos,false);
   }catch(e){
     if(/código|bloqueado/.test(e.message)){pedirConfig(e.message);return}
