@@ -95,7 +95,7 @@ label,legend{display:block;font-size:14px;color:var(--mute);margin:10px 0 4px;pa
   <div class="grab"></div>
   <h1 id="ttl">Posso voar aqui?</h1>
   <p class="sub" id="sub">Toque no alvo para usar o GPS, busque um lugar ou toque no mapa.</p>
-  <div class="legend"><span><i style="background:rgba(31,111,209,.35);border:1px solid #1f6fd1"></i>Pedidos vigentes</span><span><i style="background:rgba(214,18,126,.35);border:1px solid #d6127e"></i>Selecionado</span></div>
+  <div class="legend"><span><i style="background:rgba(31,111,209,.35);border:1px solid #1f6fd1"></i>Pedidos vigentes</span><span><i style="background:rgba(214,18,126,.35);border:1px solid #d6127e"></i>Selecionado</span><span><i style="background:rgba(194,90,0,.25);border:1px dashed #c25a00"></i>Aprovado, começa depois</span></div>
 
   <div class="slide off" id="slide"><div class="fill" id="fill"></div><div class="txt" id="stxt">deslize para liberar o voo</div>
     <div class="knob" id="knob" tabindex="0"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round"><path d="M9 5l7 7-7 7"/></svg></div></div>
@@ -184,9 +184,9 @@ const camada=L.layerGroup().addTo(map);let eu=null,euCirc=null,alvo=null;
 const ll=g=>g.map(poly=>poly.map(r=>r.map(q=>[q[1],q[0]])));
 function desenhar(){
   camada.clearLayers();
-  BASE.filter(b=>ok(b)&&vig(b)).forEach(b=>{
-    const sel=b===hit,cobre=LIVE.includes(b);
-    const pl=L.polygon(ll(b.geo),{color:sel?'#d6127e':'#1f6fd1',weight:sel?3:cobre?2:1,fillOpacity:sel?.22:cobre?.16:.08,fillColor:sel?'#d6127e':'#1f6fd1'});
+  BASE.filter(b=>ok(b)&&b.fim>=hoje).forEach(b=>{
+    const sel=b===hit,cobre=LIVE.includes(b),fut=b.ini>hoje;
+    const pl=L.polygon(ll(b.geo),{color:sel?'#d6127e':fut?'#c25a00':'#1f6fd1',weight:sel?3:cobre?2:1,fillOpacity:sel?.22:cobre?.16:.08,fillColor:sel?'#d6127e':fut?'#c25a00':'#1f6fd1',dashArray:fut&&!sel?'6 6':null});
     pl.bindTooltip(`${b.p} · ${b.alt} m`,{sticky:true});
     pl.on('click',e=>{L.DomEvent.stopPropagation(e);verificar([e.latlng.lng,e.latlng.lat],false);});
     pl.addTo(camada);
@@ -206,14 +206,20 @@ function verificar(p,centrar=true){
   pos=p;
   const cands=BASE.filter(b=>inGeo(p[0],p[1],b.geo));
   LIVE=cands.filter(b=>ok(b)&&vig(b)).sort((a,b)=>b.alt-a.alt||b.fim.localeCompare(a.fim));
+  const FUT=cands.filter(b=>ok(b)&&b.ini>hoje&&b.fim>=hoje).sort((a,b)=>a.ini.localeCompare(b.ini)||b.alt-a.alt);
+  if(!LIVE.length&&FUT.length)LIVE=FUT;
   hit=LIVE[0]||null;
   if(alvo)map.removeLayer(alvo);
   alvo=L.circleMarker([p[1],p[0]],{radius:9,color:'#fff',weight:3,fillColor:'#d6127e',fillOpacity:1}).addTo(map);
   if(centrar)map.setView([p[1],p[0]],Math.max(map.getZoom(),15));
   $('res').classList.add('hide');$('novo').classList.add('hide');resetSlide();
-  if(hit){
+  if(hit&&hit.ini>hoje){
+    $('ttl').textContent='Liberado a partir de '+br(hit.ini);
+    $('sub').textContent='Pedido aprovado para este ponto, mas ele só começa a valer em '+br(hit.ini)+'. Hoje ainda não pode voar por ele.';
+    $('slide').classList.remove('off');$('stxt').textContent='deslize para ver o pedido';
+  }else if(hit){
     $('ttl').textContent='Área coberta';
-    $('sub').textContent=LIVE.length===1?'1 pedido vigente cobre este ponto.':LIVE.length+' pedidos vigentes cobrem este ponto.';
+    $('sub').textContent=(LIVE.length===1?'1 pedido vigente cobre este ponto.':LIVE.length+' pedidos vigentes cobrem este ponto.')+(FUT.length?' Há também '+FUT.length+' aprovado(s) que começa(m) depois.':'');
     $('slide').classList.remove('off');$('stxt').textContent='deslize para liberar o voo';
   }else{
     const near=BASE.filter(b=>ok(b)&&vig(b)).map(b=>[b,edgeDist(p,b.geo)]).sort((a,b)=>a[1]-b[1])[0];
@@ -229,14 +235,14 @@ function verificar(p,centrar=true){
 function mostrar(){
   const b=hit,st=/autom/i.test(b.st)?'':' w';
   const chips=LIVE.length>1?`<p class="small" style="margin:0 0 6px">${LIVE.length} pedidos cobrem este ponto — toque em cada um:</p><div class="chips">${LIVE.map(x=>`<button type="button" class="btn${x===b?' p':''}" data-p="${esc(x.p)}">${esc(x.p)} · ${x.alt} m · ${x.tipo==='Padrão'?'Padrão':'Entorno'}</button>`).join('')}</div>`:'';
-  $('res').innerHTML=chips+`<span class="st${st}">${esc(b.st)}</span>
+  $('res').innerHTML=chips+`<span class="st${st}">${esc(b.st)}</span>${b.ini>hoje?` <span class="st w">Vale a partir de ${br(b.ini)}</span>`:''}
   <p class="small" style="margin:10px 0 0">Protocolo SARPAS</p><div class="big">${esc(b.p)}</div>
   <dl><dt>Operação</dt><dd>${esc(b.nome)}</dd><dt>Perfil</dt><dd>${esc(b.tipo)}</dd><dt>Altura</dt><dd>${b.alt} m ${esc(b.ref)}</dd>
   <dt>Validade</dt><dd>${br(b.ini)} até ${br(b.fim)}</dd><dt>Horário</dt><dd>${esc(b.hor)}</dd><dt>Pilotos</dt><dd>${esc((b.pil||[]).join(', '))}</dd></dl>
   <div class="row"><button class="btn p" id="vp" type="button">Ver autorização (PDF)</button><button class="btn" id="cp" type="button">Copiar protocolo</button>
   <a class="btn" href="https://sarpas.decea.mil.br/consulta-protocolo?queryProtocol=${encodeURIComponent(b.p)}" target="_blank" rel="noopener">Ver no SARPAS</a></div>
   <p class="small" id="cpm">O PDF é o documento oficial do SARPAS, com QR Code.</p>`;
-  $('res').classList.remove('hide');$('ttl').textContent='Voo liberado';
+  $('res').classList.remove('hide');$('ttl').textContent=b.ini>hoje?'Liberado a partir de '+br(b.ini):'Voo liberado';
   $('res').querySelectorAll('[data-p]').forEach(e=>e.onclick=()=>{hit=LIVE.find(x=>x.p===e.dataset.p)||hit;mostrar();desenhar();
     const pl=L.polygon(ll(hit.geo));map.fitBounds(pl.getBounds(),{padding:[20,20],maxZoom:17})});
   $('vp').onclick=()=>verPDF(b.p);
