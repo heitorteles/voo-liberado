@@ -27,6 +27,12 @@ body{background:var(--bg);color:var(--ink);font:16px/1.5 Overpass,system-ui,sans
 .fab{width:46px;height:46px;border-radius:14px;border:0;background:var(--card);color:var(--ink);box-shadow:0 2px 10px rgba(0,0,0,.18);display:grid;place-items:center;cursor:pointer;flex:none}
 .fab svg{width:22px;height:22px}
 .fab.on{background:var(--mag);color:#fff}
+.fab.draw{position:fixed;z-index:5;right:10px;top:calc(env(safe-area-inset-top) + 62px)}
+.fab .tag{position:absolute;right:3px;bottom:1px;font-size:10px;font-weight:800;line-height:1}
+.vtx{width:22px;height:22px;border-radius:50%;background:#fff;border:3px solid #d6127e;box-sizing:border-box;display:grid;place-items:center;font:800 10px/1 Overpass,system-ui,sans-serif;color:#d6127e;box-shadow:0 1px 4px rgba(0,0,0,.35)}
+.vtx.c{background:#d6127e;border-color:#fff}
+.f input[type=range]{padding:0;min-height:36px;border:0;background:none;accent-color:var(--mag)}
+.row .btn.g{flex:1;justify-content:center}
 .sug{position:fixed;z-index:6;left:10px;right:66px;top:calc(env(safe-area-inset-top) + 60px);background:var(--card);border-radius:14px;box-shadow:0 6px 24px rgba(0,0,0,.25);overflow:hidden;list-style:none;margin:0;padding:0}
 .sug li{padding:11px 14px;border-top:1px solid var(--line);cursor:pointer;font-size:15px}.sug li:first-child{border-top:0}
 .sug small{display:block;color:var(--mute);font-size:13px}
@@ -89,6 +95,7 @@ label,legend{display:block;font-size:14px;color:var(--mute);margin:10px 0 4px;pa
   <button class="fab" id="sat" aria-label="Alternar satélite"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3l9 5-9 5-9-5 9-5z"/><path d="M3 13l9 5 9-5"/></svg></button>
   <button class="fab" id="gps" aria-label="Minha localização"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="4"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg></button>
 </div>
+<button class="fab draw" id="draw" type="button" aria-label="Desenhar área do pedido novo" aria-pressed="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M5 18L8 5l11 4-4 10z"/><circle cx="5" cy="18" r="1.6" fill="currentColor"/><circle cx="8" cy="5" r="1.6" fill="currentColor"/><circle cx="19" cy="9" r="1.6" fill="currentColor"/><circle cx="15" cy="19" r="1.6" fill="currentColor"/></svg><span class="tag" id="drawtag"></span></button>
 <ul class="sug hide" id="sug"></ul>
 
 <section class="sheet">
@@ -100,10 +107,23 @@ label,legend{display:block;font-size:14px;color:var(--mute);margin:10px 0 4px;pa
   <div class="slide off" id="slide"><div class="fill" id="fill"></div><div class="txt" id="stxt">deslize para liberar o voo</div>
     <div class="knob" id="knob" tabindex="0"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round"><path d="M9 5l7 7-7 7"/></svg></div></div>
 
+  <section class="card hide f" id="dcard">
+    <h2>Área do pedido novo</h2>
+    <fieldset class="seg two"><legend>Forma</legend>
+      <input type="radio" name="dmodo" id="dmc" value="c"><label for="dmc">Círculo</label>
+      <input type="radio" name="dmodo" id="dmp" value="p"><label for="dmp">Polígono (pontos)</label>
+    </fieldset>
+    <p class="small" id="dhelp"></p>
+    <div id="dcirc"><label for="draio">Raio: <b id="draiov">100</b> m</label><input id="draio" type="range" min="10" max="1000" step="5" value="100"></div>
+    <div class="row" id="dpoly"><button class="btn g" type="button" id="dundo">Desfazer ponto</button><button class="btn g" type="button" id="dclear">Limpar</button></div>
+    <p class="small" id="dinfo" aria-live="polite"></p>
+    <div class="row"><button class="btn p g" type="button" id="dok">Pedir voo nesta área</button><button class="btn g" type="button" id="dsair">Sair do desenho</button></div>
+  </section>
+
   <section class="card hide" id="res"></section>
 
   <section class="card hide f" id="novo">
-    <h2>Pedir voo neste local</h2>
+    <h2 id="ntit">Pedir voo neste local</h2>
     <p class="small">Vai para a fila. Eu faço o pedido no SARPAS pela conta HEITOR FPV. Sem L-ponto na análise, o pedido sai com 120 m.</p>
     <form id="fnovo">
       <label for="nnome">Nome da operação</label><input id="nnome" placeholder="Ex.: Pinheiros – cliente X">
@@ -188,12 +208,76 @@ function desenhar(){
     const sel=b===hit,cobre=LIVE.includes(b),fut=b.ini>hoje;
     const pl=L.polygon(ll(b.geo),{color:sel?'#d6127e':fut?'#c25a00':'#1f6fd1',weight:sel?3:cobre?2:1,fillOpacity:sel?.22:cobre?.16:.08,fillColor:sel?'#d6127e':fut?'#c25a00':'#1f6fd1',dashArray:fut&&!sel?'6 6':null});
     pl.bindTooltip(`${b.p} · ${b.alt} m`,{sticky:true});
-    pl.on('click',e=>{L.DomEvent.stopPropagation(e);verificar([e.latlng.lng,e.latlng.lat],false);});
+    pl.on('click',e=>{L.DomEvent.stopPropagation(e);const q=[e.latlng.lng,e.latlng.lat];if(DM)addPonto(q);else verificar(q,false);});
     pl.addTo(camada);
   });
   if(hit)camada.eachLayer(l=>{if(l.options.color==='#d6127e')l.bringToFront()});
 }
-map.on('click',e=>verificar([e.latlng.lng,e.latlng.lat],false));
+map.on('click',e=>{const p=[e.latlng.lng,e.latlng.lat];if(DM){addPonto(p);return}verificar(p,false)});
+
+/* ---------- desenhar área do pedido novo ---------- */
+let DM=null,DC=null,DR=100,DP=[],AREA=null;
+const dLayer=L.layerGroup().addTo(map);
+const r6=q=>[Math.round(q[0]*1e6)/1e6,Math.round(q[1]*1e6)/1e6];
+const vIcon=(t,c)=>L.divIcon({className:'',html:`<div class="vtx${c?' c':''}">${t}</div>`,iconSize:[22,22],iconAnchor:[11,11]});
+function plano(pts){const la=pts.reduce((s,q)=>s+q[1],0)/pts.length,k=111320,cs=Math.cos(la*Math.PI/180);return pts.map(q=>[q[0]*k*cs,q[1]*k])}
+function m2(pts){const p=plano(pts);let a=0;for(let i=0,j=p.length-1;i<p.length;j=i++)a+=(p[j][0]+p[i][0])*(p[j][1]-p[i][1]);return Math.abs(a/2)}
+function cruza(pts){const p=plano(pts),n=p.length;if(n<4)return false;
+  const o=(a,b,c)=>Math.sign((b[0]-a[0])*(c[1]-a[1])-(b[1]-a[1])*(c[0]-a[0]));
+  for(let i=0;i<n;i++)for(let j=i+1;j<n;j++){if(j===i+1||(i===0&&j===n-1))continue;
+    const a=p[i],b=p[(i+1)%n],c=p[j],d=p[(j+1)%n];if(o(a,b,c)*o(a,b,d)<0&&o(c,d,a)*o(c,d,b)<0)return true}
+  return false}
+const fmtA=a=>a<10000?Math.round(a).toLocaleString('pt-BR')+' m²':(a/10000).toFixed(2).replace('.',',')+' ha';
+function areaAtual(){
+  if(DM==='c'&&DC)return{t:'c',c:r6(DC),r:DR};
+  if(DM==='p'&&DP.length>=3&&!cruza(DP))return{t:'p',pts:DP.map(r6)};
+  return null}
+function setModo(m){
+  DM=m;$('draw').classList.toggle('on',!!m);$('draw').setAttribute('aria-pressed',m?'true':'false');
+  $('drawtag').textContent=m==='c'?'○':m==='p'?'△':'';
+  $('dcard').classList.toggle('hide',!m);$('dcirc').classList.toggle('hide',m!=='c');$('dpoly').classList.toggle('hide',m!=='p');
+  if(m){$('dmc').checked=m==='c';$('dmp').checked=m==='p';$('res').classList.add('hide');$('novo').classList.add('hide');AREA=null;
+    if(m==='c'&&!DC&&pos)DC=pos.slice();
+    $('ttl').textContent='Desenhar área';$('sub').textContent='Monte a área exata do pedido novo. Os pedidos que já existem continuam no mapa para você aproveitar ou evitar.'}
+  $('slide').classList.toggle('hide',!!m);
+  $('dhelp').textContent=m==='c'?'Toque no mapa para pôr o centro (arraste o pino para ajustar) e escolha o raio.':m==='p'?'Toque no mapa marcando os cantos da área, em ordem, contornando o que precisar. Arraste um ponto numerado para ajustar.':'';
+  desenharArea()}
+$('draw').onclick=()=>setModo(DM===null?'c':DM==='c'?'p':null);
+document.querySelectorAll('input[name=dmodo]').forEach(i=>i.addEventListener('change',()=>setModo(i.value)));
+$('dsair').onclick=()=>{setModo(null);if(pos)verificar(pos,false)};
+$('draio').addEventListener('input',()=>{DR=+$('draio').value;$('draiov').textContent=DR;desenharArea()});
+$('dundo').onclick=()=>{DP.pop();desenharArea()};
+$('dclear').onclick=()=>{DP=[];desenharArea()};
+function addPonto(p){if(DM==='c')DC=p;else if(DP.length<40)DP.push(p);desenharArea()}
+function desenharArea(){
+  dLayer.clearLayers();
+  const est={color:'#d6127e',weight:3,fillColor:'#d6127e',fillOpacity:.18,dashArray:'8 6',interactive:false};
+  if(DM==='c'&&DC){
+    const ci=L.circle([DC[1],DC[0]],{...est,radius:DR}).addTo(dLayer);
+    L.marker([DC[1],DC[0]],{draggable:true,icon:vIcon('',true)}).addTo(dLayer)
+      .on('drag',ev=>{const g=ev.target.getLatLng();DC=[g.lng,g.lat];ci.setLatLng(g)}).on('dragend',infoArea);
+  }
+  if(DM==='p'&&DP.length){
+    const lls=()=>DP.map(q=>[q[1],q[0]]);
+    const sh=(DP.length>=3?L.polygon(lls(),est):L.polyline(lls(),est)).addTo(dLayer);
+    DP.forEach((q,i)=>L.marker([q[1],q[0]],{draggable:true,icon:vIcon(i+1)}).addTo(dLayer)
+      .on('drag',ev=>{const g=ev.target.getLatLng();DP[i]=[g.lng,g.lat];sh.setLatLngs(lls())}).on('dragend',infoArea));
+  }
+  infoArea()}
+function infoArea(){
+  let t='';
+  if(DM==='c')t=DC?'Círculo de '+DR+' m de raio · área '+fmtA(Math.PI*DR*DR)+'.':'Toque no mapa para escolher o centro.';
+  if(DM==='p')t=DP.length<3?'Marque pelo menos 3 pontos ('+DP.length+' até agora).':cruza(DP)?'As linhas do polígono se cruzam. Arraste os pontos ou desfaça até elas não se cruzarem.':DP.length+' pontos · área '+fmtA(m2(DP))+(DP.length>=40?' · limite de 40 pontos.':'.');
+  $('dinfo').textContent=t;
+  const a=areaAtual();$('dok').disabled=!a;$('dok').style.opacity=a?1:.5;
+  if(AREA){if(a)usarArea(a);else{AREA=null;$('novo').classList.add('hide')}}}
+function usarArea(a){AREA=a;
+  pos=a.t==='c'?a.c.slice():[a.pts.reduce((s,q)=>s+q[0],0)/a.pts.length,a.pts.reduce((s,q)=>s+q[1],0)/a.pts.length];
+  $('ntit').textContent=a.t==='c'?'Pedir voo neste círculo ('+a.r+' m)':'Pedir voo neste polígono ('+a.pts.length+' pontos)'}
+$('dok').onclick=()=>{
+  const a=areaAtual();if(!a)return;usarArea(a);
+  $('novo').classList.remove('hide');if(!$('ndata').value)$('ndata').value=hoje;
+  $('novo').scrollIntoView({behavior:'smooth',block:'start'})};
 
 /* ---------- geometria ---------- */
 function inRing(x,y,r){let c=false;for(let i=0,j=r.length-1;i<r.length;j=i++){const[xi,yi]=r[i],[xj,yj]=r[j];if((yi>y)!=(yj>y)&&x<(xj-xi)*(y-yi)/(yj-yi)+xi)c=!c}return c}
@@ -203,7 +287,8 @@ function edgeDist(pt,g){let m=1e12;for(const poly of g)for(const p of poly[0]){c
 
 /* ---------- verificar ponto ---------- */
 function verificar(p,centrar=true){
-  pos=p;
+  if(DM){if(centrar)map.setView([p[1],p[0]],Math.max(map.getZoom(),16));if(DM==='c'&&!DC){DC=p.slice();desenharArea()}return}
+  pos=p;AREA=null;$('ntit').textContent='Pedir voo neste local';
   const cands=BASE.filter(b=>inGeo(p[0],p[1],b.geo));
   LIVE=cands.filter(b=>ok(b)&&vig(b)).sort((a,b)=>b.alt-a.alt||b.fim.localeCompare(a.fim));
   const FUT=cands.filter(b=>ok(b)&&b.ini>hoje&&b.fim>=hoje).sort((a,b)=>a.ini.localeCompare(b.ini)||b.alt-a.alt);
@@ -322,17 +407,18 @@ $('fnovo').addEventListener('submit',async e=>{
   if(lp==='acima'&&!$('nfim').value){$('nmsg').textContent='Para voar acima do L-ponto, preencha a data de término.';return}
   $('nmsg').textContent='Enviando…';
   try{const rr=await apiPost({acao:'novo',lat:pos[1],lon:pos[0],data:$('ndata').value,fim:$('nfim').value,nome:$('nnome').value.trim(),
-      perfil:document.querySelector('input[name=nperfil]:checked').value,lponto:lp,alturaAcima:lp==='acima'?alt:'',obs:$('nobs').value.trim()});
-    $('nmsg').textContent=rr.status==='aguardando_aprovacao'?'Enviado. Fica aguardando a aprovação do Heitor; depois a tarefa agendada faz o pedido.':'Na fila. A tarefa agendada processa na próxima hora cheia (7h–22h).';$('fnovo').reset();$('lpbox').classList.add('hide');carregarFila()}
+      perfil:document.querySelector('input[name=nperfil]:checked').value,lponto:lp,alturaAcima:lp==='acima'?alt:'',obs:$('nobs').value.trim(),area:AREA||''});
+    $('nmsg').textContent=rr.status==='aguardando_aprovacao'?'Enviado. Fica aguardando a aprovação do Heitor; depois a tarefa agendada faz o pedido.':'Na fila. A tarefa agendada processa na próxima hora cheia (7h–22h).';$('fnovo').reset();$('lpbox').classList.add('hide');if(AREA&&!rr.area)$('nmsg').textContent+=' Atenção: o servidor ainda não guardou o desenho; o pedido vai como círculo de 100 m no centro da área.';if(AREA){AREA=null;DP=[];DC=null;setModo(null)}carregarFila()}
   catch(err){$('nmsg').textContent='Não consegui enviar: '+err.message}
 });
 
 /* ---------- fila ---------- */
+function formaTxt(x){try{const a=typeof x==='string'&&x?JSON.parse(x):x;return a&&a.t==='p'?' · polígono '+a.pts.length+' pts':a&&a.t==='c'?' · círculo '+a.r+' m':''}catch(e){return ''}}
 const ST={aguardando_aprovacao:'Aguardando aprovação',pendente:'Na fila',processando:'Processando',aguardando_login:'Falta login',precisa_termo:'Precisa Termo',erro:'Erro',feito:'Feito'};
 async function carregarFila(){
   try{const j=await apiGet({acao:'fila'});const f=j.fila||[];
     $('fmsg').textContent=f.length?'':'Nenhum pedido ainda.';
-    $('flist').innerHTML=f.slice(0,12).map(r=>`<li><span>${esc(r.nome||'Sem nome')}<br><span class="small">${r.quem?esc(r.quem)+' · ':''}${br(String(r.data).slice(0,10))} · ${esc(r.perfil)}${r.nota?' · '+esc(r.nota):''}</span>${EU.admin&&r.status==='aguardando_aprovacao'?`<br><button class="btn p" type="button" data-ap="${esc(r.id)}" style="margin-top:6px">Aprovar pedido</button>`:''}</span><span class="st ${r.status==='feito'?'':'m'}">${esc(r.status==='feito'&&r.protocolo?r.protocolo:(ST[r.status]||r.status))}</span></li>`).join('');
+    $('flist').innerHTML=f.slice(0,12).map(r=>`<li><span>${esc(r.nome||'Sem nome')}<br><span class="small">${r.quem?esc(r.quem)+' · ':''}${br(String(r.data).slice(0,10))} · ${esc(r.perfil)}${formaTxt(r.area)}${r.nota?' · '+esc(r.nota):''}</span>${EU.admin&&r.status==='aguardando_aprovacao'?`<br><button class="btn p" type="button" data-ap="${esc(r.id)}" style="margin-top:6px">Aprovar pedido</button>`:''}</span><span class="st ${r.status==='feito'?'':'m'}">${esc(r.status==='feito'&&r.protocolo?r.protocolo:(ST[r.status]||r.status))}</span></li>`).join('');
     $('flist').querySelectorAll('[data-ap]').forEach(b=>b.onclick=async()=>{b.disabled=true;b.textContent='Aprovando…';try{await apiPost({acao:'aprovar',id:b.dataset.ap});carregarFila()}catch(e){b.textContent='Erro: '+e.message}});
   }catch(e){$('fmsg').textContent='Fila indisponível: '+e.message}
 }
