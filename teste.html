@@ -238,8 +238,8 @@ function setModo(m){
   $('dcard').classList.toggle('hide',!m);$('dcirc').classList.toggle('hide',m!=='c');$('dpoly').classList.toggle('hide',m!=='p');
   if(m){$('dmc').checked=m==='c';$('dmp').checked=m==='p';$('res').classList.add('hide');$('novo').classList.add('hide');AREA=null;
     if(m==='c'&&!DC&&pos)DC=pos.slice();
-    $('ttl').textContent='Desenhar área';$('sub').textContent='Monte a área exata do pedido novo. Os pedidos que já existem continuam no mapa para você aproveitar ou evitar.';
-    $('dcard').scrollIntoView({behavior:'smooth',block:'nearest'})}
+    $('ttl').textContent='Desenhar área';$('sub').textContent='Monte a área exata do pedido novo. Os pedidos que já existem continuam no mapa para você aproveitar ou evitar.'}
+  $('slide').classList.toggle('hide',!!m);
   $('dhelp').textContent=m==='c'?'Toque no mapa para pôr o centro (arraste o pino para ajustar) e escolha o raio.':m==='p'?'Toque no mapa marcando os cantos da área, em ordem, contornando o que precisar. Arraste um ponto numerado para ajustar.':'';
   desenharArea()}
 $('draw').onclick=()=>setModo(DM===null?'c':DM==='c'?'p':null);
@@ -269,11 +269,13 @@ function infoArea(){
   if(DM==='c')t=DC?'Círculo de '+DR+' m de raio · área '+fmtA(Math.PI*DR*DR)+'.':'Toque no mapa para escolher o centro.';
   if(DM==='p')t=DP.length<3?'Marque pelo menos 3 pontos ('+DP.length+' até agora).':cruza(DP)?'As linhas do polígono se cruzam. Arraste os pontos ou desfaça até elas não se cruzarem.':DP.length+' pontos · área '+fmtA(m2(DP))+(DP.length>=40?' · limite de 40 pontos.':'.');
   $('dinfo').textContent=t;
-  const a=areaAtual();$('dok').disabled=!a;$('dok').style.opacity=a?1:.5}
-$('dok').onclick=()=>{
-  const a=areaAtual();if(!a)return;AREA=a;
+  const a=areaAtual();$('dok').disabled=!a;$('dok').style.opacity=a?1:.5;
+  if(AREA){if(a)usarArea(a);else{AREA=null;$('novo').classList.add('hide')}}}
+function usarArea(a){AREA=a;
   pos=a.t==='c'?a.c.slice():[a.pts.reduce((s,q)=>s+q[0],0)/a.pts.length,a.pts.reduce((s,q)=>s+q[1],0)/a.pts.length];
-  $('ntit').textContent=a.t==='c'?'Pedir voo neste círculo ('+a.r+' m)':'Pedir voo neste polígono ('+a.pts.length+' pontos)';
+  $('ntit').textContent=a.t==='c'?'Pedir voo neste círculo ('+a.r+' m)':'Pedir voo neste polígono ('+a.pts.length+' pontos)'}
+$('dok').onclick=()=>{
+  const a=areaAtual();if(!a)return;usarArea(a);
   $('novo').classList.remove('hide');if(!$('ndata').value)$('ndata').value=hoje;
   $('novo').scrollIntoView({behavior:'smooth',block:'start'})};
 
