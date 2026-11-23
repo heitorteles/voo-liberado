@@ -37,6 +37,10 @@ body{background:var(--bg);color:var(--ink);font:16px/1.5 Overpass,system-ui,sans
 .sug li{padding:11px 14px;border-top:1px solid var(--line);cursor:pointer;font-size:15px}.sug li:first-child{border-top:0}
 .sug small{display:block;color:var(--mute);font-size:13px}
 .sheet{position:relative;z-index:3;margin-top:calc(52vh - 18px);margin-top:calc(52dvh - 18px);background:var(--bg);border-radius:20px 20px 0 0;padding:14px 16px calc(40px + env(safe-area-inset-bottom));min-height:50vh;box-shadow:0 -6px 20px rgba(0,0,0,.18)}
+.rf{position:absolute;right:12px;top:10px;width:40px;height:40px;border-radius:50%;border:1px solid var(--line);background:var(--card);color:var(--ink);display:grid;place-items:center;cursor:pointer;z-index:2}
+.rf svg{width:20px;height:20px}.rf.gira svg{animation:gira .8s linear infinite}@keyframes gira{to{transform:rotate(360deg)}}
+.rf:focus-visible{outline:3px solid var(--ok);outline-offset:2px}
+#ttl{padding-right:46px}
 .grab{position:relative;width:42px;height:5px;border-radius:9px;background:var(--line);margin:0 auto 10px;touch-action:none;cursor:grab}
 .grab::before{content:'';position:absolute;inset:-14px -70px -10px}
 #map{transition:height .3s ease}.sheet{transition:margin-top .3s ease}
@@ -114,6 +118,7 @@ label,legend{display:block;font-size:14px;color:var(--mute);margin:10px 0 4px;pa
 
 <section class="sheet">
   <div class="grab" id="grab" role="button" tabindex="0" aria-label="Arraste para expandir ou recolher o painel"></div>
+  <button class="rf" id="rf" type="button" aria-label="Atualizar o app, a base e a fila"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 4v7h-7"/></svg></button>
   <h1 id="ttl">Posso voar aqui?</h1>
   <p class="sub" id="sub">Toque no alvo para usar o GPS, busque um lugar ou toque no mapa.</p>
   <div class="legend"><span><i style="background:rgba(31,111,209,.35);border:1px solid #1f6fd1"></i>Pedidos vigentes</span><span><i style="background:rgba(214,18,126,.35);border:1px solid #d6127e"></i>Selecionado</span><span><i style="background:rgba(194,90,0,.25);border:1px dashed #c25a00"></i>Aprovado, começa depois</span></div>
@@ -267,6 +272,7 @@ function setModo(m){
   $('dhelp').textContent=m==='c'?'Toque no mapa para pôr o centro (arraste o pino para ajustar) e escolha o raio.':m==='p'?'Toque no mapa marcando os cantos da área, em ordem, contornando o que precisar. Arraste um ponto numerado para ajustar.':'';
   desenharArea()}
 let LASTM='c';
+$('rf').onclick=()=>{$('rf').classList.add('gira');setTimeout(()=>location.replace(location.pathname+'?r='+Date.now()+location.hash),150)};
 $('draw').onclick=()=>setModo(DM?null:LASTM);
 document.querySelectorAll('#dbar [data-m]').forEach(b=>b.onclick=()=>setModo(b.dataset.m));
 $('dundo2').onclick=()=>{DP.pop();desenharArea()};
