@@ -138,12 +138,13 @@ label,legend{display:block;font-size:14px;color:var(--mute);margin:10px 0 4px;pa
       <label for="nnome">Nome da operação</label><input id="nnome" placeholder="Ex.: Pinheiros – cliente X">
       <label for="ndata">Data de início</label><input id="ndata" type="date">
       <label for="nfim">Data de término (opcional — vazio = 90 dias)</label><input id="nfim" type="date">
-      <fieldset class="seg two"><legend>Se aparecer L-ponto</legend>
+      <p class="small hide" id="nclone" style="background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:10px 12px"></p>
+      <div id="lpwrap"><fieldset class="seg two"><legend>Se aparecer L-ponto</legend>
         <input type="radio" name="nlp" id="lpa" value="abaixo" checked><label for="lpa">Ficar abaixo do L-ponto</label>
         <input type="radio" name="nlp" id="lpc" value="acima"><label for="lpc">Voar acima (com Termo)</label>
       </fieldset>
       <p class="small" id="lpinfo">Altura pelo L-ponto mais baixo, com folga de 2 m, arredondada para baixo (34 m livres → 30 m). Sem L-ponto: 120 m.</p>
-      <div id="lpbox" class="hide"><label for="nalt">Altura desejada (m AGL, até 120)</label><input id="nalt" type="number" min="1" max="120" inputmode="numeric"></div>
+      <div id="lpbox" class="hide"><label for="nalt">Altura desejada (m AGL, até 120)</label><input id="nalt" type="number" min="1" max="120" inputmode="numeric"></div></div>
       <fieldset class="seg"><legend>Tipo de pedido</legend>
         <input type="radio" name="nperfil" id="pe" value="Entorno de Estrutura"><label for="pe">Entorno</label>
         <input type="radio" name="nperfil" id="pp" value="Padrão"><label for="pp">Padrão</label>
@@ -251,7 +252,7 @@ function setModo(m){
   document.body.classList.toggle('drw',!!m);$('dbar').classList.toggle('hide',!m);
   document.querySelectorAll('#dbar [data-m]').forEach(b=>b.classList.toggle('on',b.dataset.m===m));$('dundo2').classList.toggle('hide',m!=='p');
   setCmp(!!m);if(m)LASTM=m;
-  if(m){$('res').classList.add('hide');$('novo').classList.add('hide');AREA=null;
+  if(m){$('res').classList.add('hide');$('novo').classList.add('hide');AREA=null;setClone(null);
     if(m==='c'&&!DC&&pos)DC=pos.slice();
     $('ttl').textContent='Desenhar área';$('sub').textContent='Monte a área exata do pedido novo. Os pedidos que já existem continuam no mapa para você aproveitar ou evitar.'}
   $('slide').classList.toggle('hide',!!m);
@@ -318,7 +319,7 @@ function edgeDist(pt,g){let m=1e12;for(const poly of g)for(const p of poly[0]){c
 /* ---------- verificar ponto ---------- */
 function verificar(p,centrar=true){
   if(DM){if(centrar)map.setView([p[1],p[0]],Math.max(map.getZoom(),16));if(DM==='c'&&!DC){DC=p.slice();desenharArea()}return}
-  pos=p;AREA=null;$('ntit').textContent='Pedir voo neste local';
+  pos=p;AREA=null;setClone(null);$('ntit').textContent='Pedir voo neste local';
   const cands=BASE.filter(b=>inGeo(p[0],p[1],b.geo));
   LIVE=cands.filter(b=>ok(b)&&vig(b)).sort((a,b)=>b.alt-a.alt||b.fim.localeCompare(a.fim));
   const FUT=cands.filter(b=>ok(b)&&b.ini>hoje&&b.fim>=hoje).sort((a,b)=>a.ini.localeCompare(b.ini)||b.alt-a.alt);
@@ -355,12 +356,14 @@ function mostrar(){
   <dl><dt>Operação</dt><dd>${esc(b.nome)}</dd><dt>Perfil</dt><dd>${esc(b.tipo)}</dd><dt>Altura</dt><dd>${b.alt} m ${esc(b.ref)}</dd>
   <dt>Validade</dt><dd>${br(b.ini)} até ${br(b.fim)}</dd><dt>Horário</dt><dd>${esc(b.hor)}</dd><dt>Pilotos</dt><dd>${esc((b.pil||[]).join(', '))}</dd></dl>
   <div class="row"><button class="btn p" id="vp" type="button">Ver autorização (PDF)</button><button class="btn" id="cp" type="button">Copiar protocolo</button>
-  <a class="btn" href="https://sarpas.decea.mil.br/consulta-protocolo?queryProtocol=${encodeURIComponent(b.p)}" target="_blank" rel="noopener">Ver no SARPAS</a></div>
+  <a class="btn" href="https://sarpas.decea.mil.br/consulta-protocolo?queryProtocol=${encodeURIComponent(b.p)}" target="_blank" rel="noopener">Ver no SARPAS</a>
+  <button class="btn" id="cl" type="button">Clonar / renovar</button></div>
   <p class="small" id="cpm">O PDF é o documento oficial do SARPAS, com QR Code.</p>`;
   $('res').classList.remove('hide');$('ttl').textContent=b.ini>hoje?'Liberado a partir de '+br(b.ini):'Voo liberado';
   $('res').querySelectorAll('[data-p]').forEach(e=>e.onclick=()=>{hit=LIVE.find(x=>x.p===e.dataset.p)||hit;mostrar();desenhar();
     const pl=L.polygon(ll(hit.geo));map.fitBounds(pl.getBounds(),{padding:[20,20],maxZoom:17})});
   $('vp').onclick=()=>verPDF(b.p);
+  $('cl').onclick=()=>clonar(b);
   $('cp').onclick=async()=>{try{await navigator.clipboard.writeText(b.p);$('cpm').textContent='Protocolo copiado.'}catch(e){$('cpm').textContent='Protocolo: '+b.p}};
 }
 
@@ -433,14 +436,41 @@ $('fnovo').addEventListener('submit',async e=>{
   e.preventDefault();if(!pos)return;
   const lp=document.querySelector('input[name=nlp]:checked').value,alt=+$('nalt').value;
   if($('nfim').value&&$('nfim').value<=$('ndata').value){$('nmsg').textContent='O término precisa ser depois do início.';return}
-  if(lp==='acima'&&!(alt>=1&&alt<=120)){$('nmsg').textContent='Informe a altura (1 a 120 m).';return}
-  if(lp==='acima'&&!$('nfim').value){$('nmsg').textContent='Para voar acima do L-ponto, preencha a data de término.';return}
+  if(!CLONE&&lp==='acima'&&!(alt>=1&&alt<=120)){$('nmsg').textContent='Informe a altura (1 a 120 m).';return}
+  if(!CLONE&&lp==='acima'&&!$('nfim').value){$('nmsg').textContent='Para voar acima do L-ponto, preencha a data de término.';return}
   $('nmsg').textContent='Enviando…';
   try{const rr=await apiPost({acao:'novo',lat:pos[1],lon:pos[0],data:$('ndata').value,fim:$('nfim').value,nome:$('nnome').value.trim(),
-      perfil:document.querySelector('input[name=nperfil]:checked').value,lponto:lp,alturaAcima:lp==='acima'?alt:'',obs:$('nobs').value.trim(),area:AREA||''});
-    $('nmsg').textContent=rr.status==='aguardando_aprovacao'?'Enviado. Fica aguardando a aprovação do Heitor; depois a tarefa agendada faz o pedido.':'Na fila. A tarefa agendada processa na próxima hora cheia (7h–22h).';$('fnovo').reset();$('lpbox').classList.add('hide');if(AREA&&!rr.area)$('nmsg').textContent+=' Atenção: o servidor ainda não guardou o desenho; o pedido vai como círculo de 100 m no centro da área.';if(AREA){AREA=null;DP=[];DC=null;setModo(null)}carregarFila()}
+      perfil:document.querySelector('input[name=nperfil]:checked').value,lponto:CLONE?'abaixo':lp,alturaAcima:!CLONE&&lp==='acima'?alt:'',obs:$('nobs').value.trim(),area:AREA||'',clone:CLONE?CLONE.p:''});
+    $('nmsg').textContent=rr.status==='aguardando_aprovacao'?'Enviado. Fica aguardando a aprovação do Heitor; depois a tarefa agendada faz o pedido.':'Na fila. A tarefa agendada processa na próxima hora cheia (7h–22h).';$('fnovo').reset();$('lpbox').classList.add('hide');if(AREA&&!rr.area)$('nmsg').textContent+=' Atenção: o servidor ainda não guardou o desenho; o pedido vai como círculo de 100 m no centro da área.';if(CLONE&&!rr.clone)$('nmsg').textContent+=' Atenção: o servidor ainda não marcou como renovação.';if(CLONE){setClone(null);AREA=null}if(AREA){AREA=null;DP=[];DC=null;setModo(null)}carregarFila()}
   catch(err){$('nmsg').textContent='Não consegui enviar: '+err.message}
 });
+
+/* ---------- clonar / renovar pedido ---------- */
+let CLONE=null;
+const PILOTOS_ATUAIS='Heitor (ZQBH), Guilherme (XUBD) e Felipe (BAGH)';
+function geoParaArea(b){
+  const ring=(b.geo&&b.geo[0]&&b.geo[0][0]||[]).slice();
+  if(ring.length>1){const a=ring[0],z=ring[ring.length-1];if(a[0]===z[0]&&a[1]===z[1])ring.pop()}
+  if(ring.length<3)return null;
+  const c=[ring.reduce((s,q)=>s+q[0],0)/ring.length,ring.reduce((s,q)=>s+q[1],0)/ring.length];
+  const ds=ring.map(q=>dist(c,q)),mn=Math.min(...ds),mx=Math.max(...ds);
+  if(ring.length>=12&&mx-mn<mx*.04)return{t:'c',c:r6(c),r:Math.max(10,Math.min(1000,Math.round((mn+mx)/2)))};
+  return{t:'p',pts:ring.map(r6)}}
+function setClone(b){CLONE=b;$('nclone').classList.toggle('hide',!b);$('lpwrap').classList.toggle('hide',!!b);
+  if(!b)return;
+  const a=geoParaArea(b);
+  $('nclone').innerHTML=`Renovação do <b>${esc(b.p)}</b>: mesma área (${a&&a.t==='c'?'círculo de '+a.r+' m':'polígono'}), mesmo perfil e mesma altura (${b.alt} m ${esc(b.ref)}), com os pilotos atuais: ${PILOTOS_ATUAIS}. Término vazio = 90 dias a partir do início. Se o SARPAS acusar L-ponto mais baixo agora, a altura cai para ficar abaixo dele.`}
+function clonar(b){
+  const a=geoParaArea(b);if(!a){$('cpm').textContent='Não consegui ler a área deste pedido.';return}
+  if(DM)setModo(null);
+  AREA=a;pos=a.t==='c'?a.c.slice():[a.pts.reduce((s,q)=>s+q[0],0)/a.pts.length,a.pts.reduce((s,q)=>s+q[1],0)/a.pts.length];
+  setClone(b);
+  $('ntit').textContent='Renovar pedido '+b.p;
+  $('nnome').value=String(b.nome||'').replace(/\s*[-–]\s*\d{1,2}\/\d{1,2}(\/\d{2,4})?\s*$/,'')+' – renovação '+br(hoje).slice(0,5);
+  $('ndata').value=hoje;$('nfim').value='';
+  (b.tipo==='Padrão'?$('pp'):$('pe')).checked=true;
+  $('nmsg').textContent='';$('novo').classList.remove('hide');
+  setCmp(false);setTimeout(()=>$('novo').scrollIntoView({behavior:'smooth',block:'start'}),200)}
 
 /* ---------- fila ---------- */
 function formaTxt(x){try{const a=typeof x==='string'&&x?JSON.parse(x):x;return a&&a.t==='p'?' · polígono '+a.pts.length+' pts':a&&a.t==='c'?' · círculo '+a.r+' m':''}catch(e){return ''}}
@@ -453,7 +483,7 @@ async function carregarFila(){
      const partes=[];if(na)partes.push(na+' na fila');if(aguard)partes.push(aguard+(EU.admin?' aguardando sua aprovação':' aguardando aprovação'));
      if(!partes.length&&f[0])partes.push('Último: '+(f[0].nome||'sem nome')+' · '+(f[0].status==='feito'&&f[0].protocolo?f[0].protocolo:(ST[f[0].status]||f[0].status)));
      $('fresumo').textContent=partes.join(' · ');$('fresumo').style.color=aguard&&EU.admin?'var(--mag)':''}
-    $('flist').innerHTML=f.slice(0,12).map(r=>`<li><span>${esc(r.nome||'Sem nome')}<br><span class="small">${r.quem?esc(r.quem)+' · ':''}${br(String(r.data).slice(0,10))} · ${esc(r.perfil)}${formaTxt(r.area)}${r.nota?' · '+esc(r.nota):''}</span>${EU.admin&&r.status==='aguardando_aprovacao'?`<br><button class="btn p" type="button" data-ap="${esc(r.id)}" style="margin-top:6px">Aprovar pedido</button>`:''}</span><span class="st ${r.status==='feito'?'':'m'}">${esc(r.status==='feito'&&r.protocolo?r.protocolo:(ST[r.status]||r.status))}</span></li>`).join('');
+    $('flist').innerHTML=f.slice(0,12).map(r=>`<li><span>${esc(r.nome||'Sem nome')}<br><span class="small">${r.quem?esc(r.quem)+' · ':''}${br(String(r.data).slice(0,10))} · ${esc(r.perfil)}${formaTxt(r.area)}${r.clone?' · renova '+esc(r.clone):''}${r.nota?' · '+esc(r.nota):''}</span>${EU.admin&&r.status==='aguardando_aprovacao'?`<br><button class="btn p" type="button" data-ap="${esc(r.id)}" style="margin-top:6px">Aprovar pedido</button>`:''}</span><span class="st ${r.status==='feito'?'':'m'}">${esc(r.status==='feito'&&r.protocolo?r.protocolo:(ST[r.status]||r.status))}</span></li>`).join('');
     $('flist').querySelectorAll('[data-ap]').forEach(b=>b.onclick=async()=>{b.disabled=true;b.textContent='Aprovando…';try{await apiPost({acao:'aprovar',id:b.dataset.ap});carregarFila()}catch(e){b.textContent='Erro: '+e.message}});
   }catch(e){$('fmsg').textContent='Fila indisponível: '+e.message}
 }
