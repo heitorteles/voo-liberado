@@ -465,9 +465,9 @@ $('fnovo').addEventListener('submit',async e=>{
 });
 function msgPedido(rr){
   if(rr.via!=='api')return rr.msg||(rr.status==='aguardando_aprovacao'?'Enviado. Fica aguardando a aprovação do Heitor; quando ele aprovar, sai direto pela API.':'Na fila. A tarefa agendada processa na próxima hora cheia (7h–22h).');
-  const st={approved:'APROVADO',pending:'aceito, em processamento no SARPAS',rejected:'negado',failed:'falhou'};
-  return (rr.resultados||[]).map(x=>x.protocolo?`✔ ${x.perfil}: ${st[x.status]||x.status}${x.statusSarpas?' ('+x.statusSarpas+')':''}. Protocolo ${x.protocolo} (${br(x.ini)} a ${br(x.fim)}, ${x.alt} m${x.ajustado?', início ajustado':''}).`
-    :`• ${x.perfil}: ${x.status==='erro'?'erro':'vai pela tarefa agendada'}. ${x.motivo||''}${x.zonas&&x.zonas.length?' ('+x.zonas.join(', ')+')':''}`).join('\n')+((rr.resultados||[]).some(x=>x.protocolo)?'\nO PDF oficial com QR Code aparece no app depois da próxima sincronização.':'')}
+  const st={approved:'APROVADO',pending:'aceito, em análise no SARPAS',rejected:'negado',failed:'falhou'};
+  return (rr.resultados||[]).map(x=>x.protocolo?`✔ ${x.perfil}: ${st[x.status]||x.status}${x.statusSarpas?' ('+x.statusSarpas+')':''}. Protocolo ${x.protocolo} (${br(x.ini)} a ${br(x.fim)}, ${x.alt} m${x.ajustado?', início ajustado':''}).${x.altPedida?` Altura baixada de ${x.altPedida} para ${x.alt} m para ficar abaixo do heliponto.`:''}${x.justificado?` Foi com justificativa anexada: ${x.justificado.n} heliponto(s) acima do teto de ${x.justificado.teto} m (mais baixo ${x.justificado.heliponto}, ${x.justificado.elev} m) — sem Termo; analista decide em até 4 dias.`:''}`
+    :`• ${x.perfil}: ${x.status==='erro'?'erro':'vai pela tarefa agendada'}. ${x.motivo||''}${x.zonas&&x.zonas.length?' ('+x.zonas.join(', ')+')':''}`).join('\n')+((rr.resultados||[]).some(x=>x.protocolo)?'\nO PDF com QR Code aparece quando o pedido for aprovado.':'')}
 async function recarregarBase(){try{const j=await apiGet({acao:'base'});BASE=j.base;LS.set('vl_base',JSON.stringify(BASE));desenhar();if(pos)verificar(pos,false)}catch(e){}}
 
 /* ---------- prévia do SARPAS (análise preliminar, não cria pedido) ---------- */
