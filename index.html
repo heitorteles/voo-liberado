@@ -37,7 +37,20 @@ body{background:var(--bg);color:var(--ink);font:16px/1.5 Overpass,system-ui,sans
 .sug li{padding:11px 14px;border-top:1px solid var(--line);cursor:pointer;font-size:15px}.sug li:first-child{border-top:0}
 .sug small{display:block;color:var(--mute);font-size:13px}
 .sheet{position:relative;z-index:3;margin-top:calc(52vh - 18px);margin-top:calc(52dvh - 18px);background:var(--bg);border-radius:20px 20px 0 0;padding:14px 16px calc(40px + env(safe-area-inset-bottom));min-height:50vh;box-shadow:0 -6px 20px rgba(0,0,0,.18)}
-.grab{width:42px;height:5px;border-radius:9px;background:var(--line);margin:0 auto 10px}
+.grab{position:relative;width:42px;height:5px;border-radius:9px;background:var(--line);margin:0 auto 10px;touch-action:none;cursor:grab}
+.grab::before{content:'';position:absolute;inset:-14px -70px -10px}
+#map{transition:height .3s ease}.sheet{transition:margin-top .3s ease}
+body.cmp #map{height:80vh;height:80dvh}
+body.cmp .sheet{margin-top:calc(80vh - 18px);margin-top:calc(80dvh - 18px)}
+body.drw #ttl,body.drw #sub,body.drw .legend,body.drw #slide{display:none}
+body.drw #dcard{margin-top:0}
+.dbar{position:fixed;z-index:5;left:10px;top:calc(env(safe-area-inset-top) + 62px);display:flex;gap:6px;flex-wrap:wrap;right:66px}
+.chip{min-height:40px;padding:8px 14px;border-radius:999px;border:0;background:var(--card);color:var(--ink);font:inherit;font-weight:700;font-size:14px;box-shadow:0 2px 10px rgba(0,0,0,.22);cursor:pointer}
+.chip.on{background:var(--mag);color:#fff}
+.fhead{all:unset;box-sizing:border-box;display:flex;justify-content:space-between;align-items:center;gap:10px;width:100%;cursor:pointer;min-height:32px}
+.fhead h2{margin:0}.fhead .chev{transition:transform .2s;color:var(--mute);font-size:18px}
+.fhead[aria-expanded=true] .chev{transform:rotate(180deg)}
+.fhead:focus-visible{outline:3px solid var(--ok);outline-offset:4px;border-radius:8px}
 h1{font-size:30px;line-height:1.05;margin:2px 0 4px;font-weight:800;text-wrap:balance}
 h2{font-size:19px;margin:0 0 6px}
 .sub{color:var(--mute);margin:0 0 12px;font-size:15px}
@@ -96,10 +109,11 @@ label,legend{display:block;font-size:14px;color:var(--mute);margin:10px 0 4px;pa
   <button class="fab" id="gps" aria-label="Minha localização"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="4"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg></button>
 </div>
 <button class="fab draw" id="draw" type="button" aria-label="Desenhar área do pedido novo" aria-pressed="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M5 18L8 5l11 4-4 10z"/><circle cx="5" cy="18" r="1.6" fill="currentColor"/><circle cx="8" cy="5" r="1.6" fill="currentColor"/><circle cx="19" cy="9" r="1.6" fill="currentColor"/><circle cx="15" cy="19" r="1.6" fill="currentColor"/></svg><span class="tag" id="drawtag"></span></button>
+<div class="dbar hide" id="dbar" role="group" aria-label="Forma da área"><button class="chip" type="button" data-m="c">Círculo</button><button class="chip" type="button" data-m="p">Polígono</button><button class="chip" type="button" id="dundo2" aria-label="Desfazer último ponto">↶ Desfazer</button></div>
 <ul class="sug hide" id="sug"></ul>
 
 <section class="sheet">
-  <div class="grab"></div>
+  <div class="grab" id="grab" role="button" tabindex="0" aria-label="Arraste para expandir ou recolher o painel"></div>
   <h1 id="ttl">Posso voar aqui?</h1>
   <p class="sub" id="sub">Toque no alvo para usar o GPS, busque um lugar ou toque no mapa.</p>
   <div class="legend"><span><i style="background:rgba(31,111,209,.35);border:1px solid #1f6fd1"></i>Pedidos vigentes</span><span><i style="background:rgba(214,18,126,.35);border:1px solid #d6127e"></i>Selecionado</span><span><i style="background:rgba(194,90,0,.25);border:1px dashed #c25a00"></i>Aprovado, começa depois</span></div>
@@ -108,16 +122,11 @@ label,legend{display:block;font-size:14px;color:var(--mute);margin:10px 0 4px;pa
     <div class="knob" id="knob" tabindex="0"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round"><path d="M9 5l7 7-7 7"/></svg></div></div>
 
   <section class="card hide f" id="dcard">
-    <h2>Área do pedido novo</h2>
-    <fieldset class="seg two"><legend>Forma</legend>
-      <input type="radio" name="dmodo" id="dmc" value="c"><label for="dmc">Círculo</label>
-      <input type="radio" name="dmodo" id="dmp" value="p"><label for="dmp">Polígono (pontos)</label>
-    </fieldset>
-    <p class="small" id="dhelp"></p>
+    <p class="small" id="dinfo" aria-live="polite" style="margin:0"></p>
     <div id="dcirc"><label for="draio">Raio: <b id="draiov">100</b> m</label><input id="draio" type="range" min="10" max="1000" step="5" value="100"></div>
     <div class="row" id="dpoly"><button class="btn g" type="button" id="dundo">Desfazer ponto</button><button class="btn g" type="button" id="dclear">Limpar</button></div>
-    <p class="small" id="dinfo" aria-live="polite"></p>
     <div class="row"><button class="btn p g" type="button" id="dok">Pedir voo nesta área</button><button class="btn g" type="button" id="dsair">Sair do desenho</button></div>
+    <p class="small" id="dhelp"></p>
   </section>
 
   <section class="card hide" id="res"></section>
@@ -146,10 +155,13 @@ label,legend{display:block;font-size:14px;color:var(--mute);margin:10px 0 4px;pa
     </form>
   </section>
 
-  <section class="card">
-    <h2>Fila de pedidos novos</h2>
-    <p class="small" id="fmsg">Carregando…</p>
-    <ul class="list" id="flist"></ul>
+  <section class="card" id="fcard">
+    <button class="fhead" id="ftog" type="button" aria-expanded="false" aria-controls="fbody"><h2>Fila de pedidos novos <span class="small" id="fcount"></span></h2><span class="chev" aria-hidden="true">▾</span></button>
+    <p class="small" id="fresumo" style="margin:6px 0 0"></p>
+    <div id="fbody" class="hide">
+      <p class="small" id="fmsg">Carregando…</p>
+      <ul class="list" id="flist"></ul>
+    </div>
   </section>
   <p class="small" id="info"></p>
   <p class="small"><a href="#" id="sair">Trocar código / servidor</a></p>
@@ -236,14 +248,32 @@ function setModo(m){
   DM=m;$('draw').classList.toggle('on',!!m);$('draw').setAttribute('aria-pressed',m?'true':'false');
   $('drawtag').textContent=m==='c'?'○':m==='p'?'△':'';
   $('dcard').classList.toggle('hide',!m);$('dcirc').classList.toggle('hide',m!=='c');$('dpoly').classList.toggle('hide',m!=='p');
-  if(m){$('dmc').checked=m==='c';$('dmp').checked=m==='p';$('res').classList.add('hide');$('novo').classList.add('hide');AREA=null;
+  document.body.classList.toggle('drw',!!m);$('dbar').classList.toggle('hide',!m);
+  document.querySelectorAll('#dbar [data-m]').forEach(b=>b.classList.toggle('on',b.dataset.m===m));$('dundo2').classList.toggle('hide',m!=='p');
+  setCmp(!!m);if(m)LASTM=m;
+  if(m){$('res').classList.add('hide');$('novo').classList.add('hide');AREA=null;
     if(m==='c'&&!DC&&pos)DC=pos.slice();
     $('ttl').textContent='Desenhar área';$('sub').textContent='Monte a área exata do pedido novo. Os pedidos que já existem continuam no mapa para você aproveitar ou evitar.'}
   $('slide').classList.toggle('hide',!!m);
   $('dhelp').textContent=m==='c'?'Toque no mapa para pôr o centro (arraste o pino para ajustar) e escolha o raio.':m==='p'?'Toque no mapa marcando os cantos da área, em ordem, contornando o que precisar. Arraste um ponto numerado para ajustar.':'';
   desenharArea()}
-$('draw').onclick=()=>setModo(DM===null?'c':DM==='c'?'p':null);
-document.querySelectorAll('input[name=dmodo]').forEach(i=>i.addEventListener('change',()=>setModo(i.value)));
+let LASTM='c';
+$('draw').onclick=()=>setModo(DM?null:LASTM);
+document.querySelectorAll('#dbar [data-m]').forEach(b=>b.onclick=()=>setModo(b.dataset.m));
+$('dundo2').onclick=()=>{DP.pop();desenharArea()};
+/* painel: arrastar para expandir/recolher */
+function setCmp(on){const was=document.body.classList.contains('cmp');document.body.classList.toggle('cmp',on);
+  if(on)window.scrollTo({top:0,behavior:'smooth'});if(was!==on)setTimeout(()=>map.invalidateSize(),330)}
+let gy=null;
+$('grab').addEventListener('pointerdown',e=>{gy=e.clientY;try{$('grab').setPointerCapture(e.pointerId)}catch(_){}});
+$('grab').addEventListener('pointerup',e=>{if(gy==null)return;const d=e.clientY-gy;gy=null;
+  if(d<-20)setCmp(false);else if(d>20)setCmp(true);else setCmp(!document.body.classList.contains('cmp'))});
+$('grab').addEventListener('pointercancel',()=>{gy=null});
+$('grab').addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();setCmp(!document.body.classList.contains('cmp'))}});
+/* fila: abrir/fechar */
+function setFila(open){$('fbody').classList.toggle('hide',!open);$('ftog').setAttribute('aria-expanded',open?'true':'false');LS.set('vl_fila',open?'1':'0')}
+$('ftog').onclick=()=>setFila($('fbody').classList.contains('hide'));
+setFila(LS.get('vl_fila')==='1');
 $('dsair').onclick=()=>{setModo(null);if(pos)verificar(pos,false)};
 $('draio').addEventListener('input',()=>{DR=+$('draio').value;$('draiov').textContent=DR;desenharArea()});
 $('dundo').onclick=()=>{DP.pop();desenharArea()};
@@ -277,7 +307,7 @@ function usarArea(a){AREA=a;
 $('dok').onclick=()=>{
   const a=areaAtual();if(!a)return;usarArea(a);
   $('novo').classList.remove('hide');if(!$('ndata').value)$('ndata').value=hoje;
-  $('novo').scrollIntoView({behavior:'smooth',block:'start'})};
+  setCmp(false);setTimeout(()=>$('novo').scrollIntoView({behavior:'smooth',block:'start'}),340)};
 
 /* ---------- geometria ---------- */
 function inRing(x,y,r){let c=false;for(let i=0,j=r.length-1;i<r.length;j=i++){const[xi,yi]=r[i],[xj,yj]=r[j];if((yi>y)!=(yj>y)&&x<(xj-xi)*(y-yi)/(yj-yi)+xi)c=!c}return c}
@@ -418,6 +448,11 @@ const ST={aguardando_aprovacao:'Aguardando aprovação',pendente:'Na fila',proce
 async function carregarFila(){
   try{const j=await apiGet({acao:'fila'});const f=j.fila||[];
     $('fmsg').textContent=f.length?'':'Nenhum pedido ainda.';
+    {const aguard=f.filter(r=>r.status==='aguardando_aprovacao').length,na=f.filter(r=>/pendente|processando/.test(r.status)).length;
+     $('fcount').textContent=f.length?'('+f.length+')':'';
+     const partes=[];if(na)partes.push(na+' na fila');if(aguard)partes.push(aguard+(EU.admin?' aguardando sua aprovação':' aguardando aprovação'));
+     if(!partes.length&&f[0])partes.push('Último: '+(f[0].nome||'sem nome')+' · '+(f[0].status==='feito'&&f[0].protocolo?f[0].protocolo:(ST[f[0].status]||f[0].status)));
+     $('fresumo').textContent=partes.join(' · ');$('fresumo').style.color=aguard&&EU.admin?'var(--mag)':''}
     $('flist').innerHTML=f.slice(0,12).map(r=>`<li><span>${esc(r.nome||'Sem nome')}<br><span class="small">${r.quem?esc(r.quem)+' · ':''}${br(String(r.data).slice(0,10))} · ${esc(r.perfil)}${formaTxt(r.area)}${r.nota?' · '+esc(r.nota):''}</span>${EU.admin&&r.status==='aguardando_aprovacao'?`<br><button class="btn p" type="button" data-ap="${esc(r.id)}" style="margin-top:6px">Aprovar pedido</button>`:''}</span><span class="st ${r.status==='feito'?'':'m'}">${esc(r.status==='feito'&&r.protocolo?r.protocolo:(ST[r.status]||r.status))}</span></li>`).join('');
     $('flist').querySelectorAll('[data-ap]').forEach(b=>b.onclick=async()=>{b.disabled=true;b.textContent='Aprovando…';try{await apiPost({acao:'aprovar',id:b.dataset.ap});carregarFila()}catch(e){b.textContent='Erro: '+e.message}});
   }catch(e){$('fmsg').textContent='Fila indisponível: '+e.message}
