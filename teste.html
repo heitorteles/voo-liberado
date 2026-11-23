@@ -63,7 +63,7 @@ h2{font-size:19px;margin:0 0 6px}
 .card{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:16px;margin:12px 0}
 .big{font-size:38px;font-weight:800;letter-spacing:.04em;line-height:1.05}
 .st{display:inline-block;border-radius:999px;padding:3px 10px;font-size:13px;font-weight:600;color:#fff;background:var(--ok);white-space:nowrap}
-.st.w{background:var(--warn)}.st.m{background:var(--mag)}
+.st.w{background:var(--warn)}.st.m{background:var(--mag)}.st.n{background:#c0392b}.st.c{background:var(--line);color:var(--ink)}
 dl{display:grid;grid-template-columns:auto minmax(0,1fr);gap:4px 14px;margin:12px 0 0;font-size:15px}
 dt{color:var(--mute)}dd{margin:0;overflow-wrap:anywhere}
 .btn{min-height:44px;border-radius:12px;border:1px solid var(--line);background:var(--card);color:var(--ink);padding:10px 14px;font:inherit;font-weight:600;cursor:pointer;text-decoration:none;display:inline-flex;align-items:center}
@@ -123,6 +123,14 @@ label,legend{display:block;font-size:14px;color:var(--mute);margin:10px 0 4px;pa
 
   <section class="card hide f" id="dcard">
     <p class="small" id="dinfo" aria-live="polite" style="margin:0"></p>
+    <div id="pvbox" class="hide" style="border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin:10px 0 4px">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap"><b style="font-size:15px">Prévia do SARPAS</b><span class="st c" id="pvst" aria-live="polite">…</span></div>
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:8px">
+        <button class="chip on" type="button" data-pp="Entorno de Estrutura">Entorno</button><button class="chip" type="button" data-pp="Padrão">Padrão</button>
+        <span class="small" style="display:flex;align-items:center;gap:6px"><label for="pvalt" style="margin:0">Altura</label><input id="pvalt" type="number" min="1" max="120" value="120" inputmode="numeric" style="width:78px;min-height:38px;padding:6px 8px;margin:0"> m</span>
+      </div>
+      <p class="small" id="pvmsg" style="margin:8px 0 0"></p>
+    </div>
     <div id="dcirc"><label for="draio">Raio: <b id="draiov">100</b> m</label><input id="draio" type="range" min="10" max="1000" step="5" value="100"></div>
     <div class="row" id="dpoly"><button class="btn g" type="button" id="dundo">Desfazer ponto</button><button class="btn g" type="button" id="dclear">Limpar</button></div>
     <div class="row"><button class="btn p g" type="button" id="dok">Pedir voo nesta área</button><button class="btn g" type="button" id="dsair">Sair do desenho</button></div>
@@ -300,7 +308,7 @@ function infoArea(){
   if(DM==='c')t=DC?'Círculo de '+DR+' m de raio · área '+fmtA(Math.PI*DR*DR)+'.':'Toque no mapa para escolher o centro.';
   if(DM==='p')t=DP.length<3?'Marque pelo menos 3 pontos ('+DP.length+' até agora).':cruza(DP)?'As linhas do polígono se cruzam. Arraste os pontos ou desfaça até elas não se cruzarem.':DP.length+' pontos · área '+fmtA(m2(DP))+(DP.length>=40?' · limite de 40 pontos.':'.');
   $('dinfo').textContent=t;
-  const a=areaAtual();$('dok').disabled=!a;$('dok').style.opacity=a?1:.5;
+  const a=areaAtual();$('dok').disabled=!a;$('dok').style.opacity=a?1:.5;agendarPrevia();
   if(AREA){if(a)usarArea(a);else{AREA=null;$('novo').classList.add('hide')}}}
 function usarArea(a){AREA=a;
   pos=a.t==='c'?a.c.slice():[a.pts.reduce((s,q)=>s+q[0],0)/a.pts.length,a.pts.reduce((s,q)=>s+q[1],0)/a.pts.length];
@@ -444,6 +452,30 @@ $('fnovo').addEventListener('submit',async e=>{
     $('nmsg').textContent=rr.status==='aguardando_aprovacao'?'Enviado. Fica aguardando a aprovação do Heitor; depois a tarefa agendada faz o pedido.':'Na fila. A tarefa agendada processa na próxima hora cheia (7h–22h).';$('fnovo').reset();$('lpbox').classList.add('hide');if(AREA&&!rr.area)$('nmsg').textContent+=' Atenção: o servidor ainda não guardou o desenho; o pedido vai como círculo de 100 m no centro da área.';if(CLONE&&!rr.clone)$('nmsg').textContent+=' Atenção: o servidor ainda não marcou como renovação.';if(CLONE){setClone(null);AREA=null}if(AREA){AREA=null;DP=[];DC=null;setModo(null)}carregarFila()}
   catch(err){$('nmsg').textContent='Não consegui enviar: '+err.message}
 });
+
+/* ---------- prévia do SARPAS (análise preliminar, não cria pedido) ---------- */
+const pvLayer=L.layerGroup().addTo(map);let pvT=null,pvSeq=0,pvUlt='',PVPERFIL='Entorno de Estrutura';
+document.querySelectorAll('[data-pp]').forEach(b=>b.onclick=()=>{PVPERFIL=b.dataset.pp;document.querySelectorAll('[data-pp]').forEach(x=>x.classList.toggle('on',x===b));pvUlt='';agendarPrevia()});
+$('pvalt').addEventListener('change',()=>{pvUlt='';agendarPrevia()});
+function agendarPrevia(){
+  clearTimeout(pvT);const a=DM?areaAtual():null;
+  if(!a){$('pvbox').classList.add('hide');pvLayer.clearLayers();pvUlt='';pvSeq++;return}
+  const alt=Math.max(1,Math.min(120,Math.round(+$('pvalt').value||120))),chave=JSON.stringify([a,PVPERFIL,alt]);
+  $('pvbox').classList.remove('hide');if(chave===pvUlt)return;
+  $('pvst').className='st c';$('pvst').textContent='consultando…';$('pvmsg').textContent='Perguntando ao SARPAS o que essa área cruza…';
+  pvT=setTimeout(()=>previaSarpas(a,alt,chave),1300)}
+async function previaSarpas(a,alt,chave){
+  const seq=++pvSeq;
+  try{const r=await apiPost({acao:'previa',area:a,perfil:PVPERFIL,altura:alt});if(seq!==pvSeq)return;pvUlt=chave;mostrarPrevia(r)}
+  catch(e){if(seq!==pvSeq)return;pvLayer.clearLayers();$('pvst').className='st c';$('pvst').textContent='indisponível';$('pvmsg').textContent='Não consegui a prévia agora: '+e.message}}
+function mostrarPrevia(r){
+  pvLayer.clearLayers();const cat=String(r.categoria||'');
+  $('pvst').className='st'+(/aprov|aceit/i.test(cat)?'':/negad/i.test(cat)?' n':' w');
+  $('pvst').textContent=/aprov|aceit/i.test(cat)?'Aprovação automática':/negad/i.test(cat)?'Não passa assim':(r.rotulo||'Análise manual');
+  const ids=[...new Set((r.restricoes||[]).map(x=>x.id).filter(Boolean))];
+  $('pvmsg').textContent=(r.motivo||'')+(ids.length?' Zonas cruzadas: '+ids.join(', ')+'.':'')+` (${r.perfil}, ${r.alt} m, terreno ${r.elev} m. Só uma prévia: nada foi pedido.)`;
+  (r.restricoes||[]).forEach(f=>{try{L.geoJSON(f.geo,{style:{color:'#e0242b',weight:2,fillColor:'#e0242b',fillOpacity:.07,dashArray:'4 5'}})
+    .bindTooltip([f.camada.toUpperCase(),f.id,f.tipo,f.modo].filter(Boolean).join(' · '),{sticky:true}).addTo(pvLayer)}catch(e){}})}
 
 /* ---------- clonar / renovar pedido ---------- */
 let CLONE=null;
