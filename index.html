@@ -432,7 +432,7 @@ map.on('movestart',()=>$('sug').classList.add('hide'));
 let pdfLib=null;
 const loadScript=src=>new Promise((ok,err)=>{const s=document.createElement('script');s.src=src;s.onload=ok;s.onerror=()=>err(new Error('não carregou o leitor de PDF'));document.head.appendChild(s)});
 async function verPDF(p){
-  const box=$('pdfp');$('pdft').textContent='Autorização '+p;box.innerHTML='<p>Carregando PDF…</p>';$('pdfv').classList.remove('hide');
+  const box=$('pdfp');$('pdft').textContent='Autorização '+p;box.innerHTML='<p>Carregando PDF…</p><p class="small">Se ainda não existir, ele é gerado agora a partir do SARPAS e guardado no Drive (uns 10 segundos).</p>';$('pdfv').classList.remove('hide');
   try{
     const j=await apiGet({acao:'pdf',p});
     const bin=atob(j.b64),data=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)data[i]=bin.charCodeAt(i);
