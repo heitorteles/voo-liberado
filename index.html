@@ -205,7 +205,7 @@ const $=id=>document.getElementById(id);
 const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const LS={get:k=>{try{return localStorage.getItem(k)}catch(e){return null}},set:(k,v)=>{try{localStorage.setItem(k,v)}catch(e){}},del:k=>{try{localStorage.removeItem(k)}catch(e){}}};
 let API=LS.get('vl_api'),COD=LS.get('vl_cod');
-let BASE=[],LIVE=[],pos=null,hit=null,gpsOn=false,watch=null,EU={nome:'',admin:false};
+let BASE=[],LIVE=[],CHIPS=[],pos=null,hit=null,gpsOn=false,watch=null,EU={nome:'',admin:false};
 const hoje=new Date(Date.now()-3*3600e3).toISOString().slice(0,10);
 const ok=p=>/aprovado/i.test(p.st)&&!/negado/i.test(p.st);
 const vig=p=>p.ini<=hoje&&hoje<=p.fim;
@@ -231,8 +231,8 @@ const camada=L.layerGroup().addTo(map);let eu=null,euCirc=null,alvo=null;
 const ll=g=>g.map(poly=>poly.map(r=>r.map(q=>[q[1],q[0]])));
 function desenhar(){
   camada.clearLayers();
-  BASE.filter(b=>ok(b)&&b.fim>=hoje).forEach(b=>{
-    const sel=b===hit,cobre=LIVE.includes(b),fut=b.ini>hoje;
+  BASE.filter(b=>ok(b)&&b.fim>=hoje).sort((a,b)=>(a.ini>hoje)-(b.ini>hoje)).forEach(b=>{
+    const sel=b===hit,cobre=CHIPS.includes(b),fut=b.ini>hoje;
     const pl=L.polygon(ll(b.geo),{color:sel?'#d6127e':fut?'#c25a00':'#1f6fd1',weight:sel?3:cobre?2:1,fillOpacity:sel?.22:cobre?.16:.08,fillColor:sel?'#d6127e':fut?'#c25a00':'#1f6fd1',dashArray:fut&&!sel?'6 6':null});
     pl.bindTooltip(`${b.p} · ${b.alt} m`,{sticky:true});
     pl.on('click',e=>{L.DomEvent.stopPropagation(e);const q=[e.latlng.lng,e.latlng.lat];if(DM)addPonto(q);else verificar(q,false);});
@@ -339,6 +339,7 @@ function verificar(p,centrar=true){
   LIVE=cands.filter(b=>ok(b)&&vig(b)).sort((a,b)=>b.alt-a.alt||b.fim.localeCompare(a.fim));
   const FUT=cands.filter(b=>ok(b)&&b.ini>hoje&&b.fim>=hoje).sort((a,b)=>a.ini.localeCompare(b.ini)||b.alt-a.alt);
   if(!LIVE.length&&FUT.length)LIVE=FUT;
+  CHIPS=LIVE===FUT?FUT:LIVE.concat(FUT);
   hit=LIVE[0]||null;
   if(alvo)map.removeLayer(alvo);
   alvo=L.circleMarker([p[1],p[0]],{radius:9,color:'#fff',weight:3,fillColor:'#d6127e',fillOpacity:1}).addTo(map);
@@ -350,7 +351,7 @@ function verificar(p,centrar=true){
     $('slide').classList.remove('off');$('stxt').textContent='deslize para ver o pedido';
   }else if(hit){
     $('ttl').textContent='Área coberta';
-    $('sub').textContent=(LIVE.length===1?'1 pedido vigente cobre este ponto.':LIVE.length+' pedidos vigentes cobrem este ponto.')+(FUT.length?' Há também '+FUT.length+' aprovado(s) que começa(m) depois.':'');
+    $('sub').textContent=(LIVE.length===1?'1 pedido vigente cobre este ponto.':LIVE.length+' pedidos vigentes cobrem este ponto.')+(FUT.length?' Há também '+FUT.length+' aprovado(s) que começa(m) depois (tracejado laranja no mapa) — deslize para ver todos.':'');
     $('slide').classList.remove('off');$('stxt').textContent='deslize para liberar o voo';
   }else{
     const near=BASE.filter(b=>ok(b)&&vig(b)).map(b=>[b,edgeDist(p,b.geo)]).sort((a,b)=>a[1]-b[1])[0];
@@ -365,7 +366,7 @@ function verificar(p,centrar=true){
 /* ---------- resultado ---------- */
 function mostrar(){
   const b=hit,st=/autom/i.test(b.st)?'':' w';
-  const chips=LIVE.length>1?`<p class="small" style="margin:0 0 6px">${LIVE.length} pedidos cobrem este ponto — toque em cada um:</p><div class="chips">${LIVE.map(x=>`<button type="button" class="btn${x===b?' p':''}" data-p="${esc(x.p)}">${esc(x.p)} · ${x.alt} m · ${x.tipo==='Padrão'?'Padrão':'Entorno'}</button>`).join('')}</div>`:'';
+  const chips=CHIPS.length>1?`<p class="small" style="margin:0 0 6px">${CHIPS.length} pedidos aprovados cobrem este ponto — toque em cada um:</p><div class="chips">${CHIPS.map(x=>`<button type="button" class="btn${x===b?' p':''}" data-p="${esc(x.p)}"${x.ini>hoje&&x!==b?' style="border-color:#c25a00;border-style:dashed"':''}>${esc(x.p)} · ${x.alt} m · ${x.tipo==='Padrão'?'Padrão':'Entorno'}${x.ini>hoje?' · a partir de '+br(x.ini).slice(0,5):''}</button>`).join('')}</div>`:'';
   $('res').innerHTML=chips+`<span class="st${st}">${esc(b.st)}</span>${b.ini>hoje?` <span class="st w">Vale a partir de ${br(b.ini)}</span>`:''}
   <p class="small" style="margin:10px 0 0">Protocolo SARPAS</p><div class="big">${esc(b.p)}</div>
   <dl><dt>Operação</dt><dd>${esc(b.nome)}</dd><dt>Perfil</dt><dd>${esc(b.tipo)}</dd><dt>Altura</dt><dd>${b.alt} m ${esc(b.ref)}</dd>
@@ -375,7 +376,7 @@ function mostrar(){
   <button class="btn" id="cl" type="button">Clonar / renovar</button></div>
   <p class="small" id="cpm">O PDF é o documento oficial do SARPAS, com QR Code.</p>`;
   $('res').classList.remove('hide');$('ttl').textContent=b.ini>hoje?'Liberado a partir de '+br(b.ini):'Voo liberado';
-  $('res').querySelectorAll('[data-p]').forEach(e=>e.onclick=()=>{hit=LIVE.find(x=>x.p===e.dataset.p)||hit;mostrar();desenhar();
+  $('res').querySelectorAll('[data-p]').forEach(e=>e.onclick=()=>{hit=CHIPS.find(x=>x.p===e.dataset.p)||hit;mostrar();desenhar();
     const pl=L.polygon(ll(hit.geo));map.fitBounds(pl.getBounds(),{padding:[20,20],maxZoom:17})});
   $('vp').onclick=()=>verPDF(b.p);
   $('cl').onclick=()=>clonar(b);
