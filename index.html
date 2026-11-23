@@ -141,7 +141,7 @@ label,legend{display:block;font-size:14px;color:var(--mute);margin:10px 0 4px;pa
 
   <section class="card hide f" id="novo">
     <h2 id="ntit">Pedir voo neste local</h2>
-    <p class="small">Vai para a fila. Eu faço o pedido no SARPAS pela conta HEITOR FPV. Sem L-ponto na análise, o pedido sai com 120 m.</p>
+    <p class="small">Vai direto ao SARPAS pela API oficial, em nome da HEITOR FPV, e a resposta sai em segundos. Sem L-ponto, o pedido sai com 120 m. Se a área cruzar heliponto/L-ponto ou precisar de Termo, ele entra na fila e a tarefa agendada resolve.</p>
     <form id="fnovo">
       <label for="nnome">Nome da operação</label><input id="nnome" placeholder="Ex.: Pinheiros – cliente X">
       <label for="ndata">Data de início</label><input id="ndata" type="date">
@@ -159,8 +159,8 @@ label,legend{display:block;font-size:14px;color:var(--mute);margin:10px 0 4px;pa
         <input type="radio" name="nperfil" id="pa" value="Os dois" checked><label for="pa">Os dois</label>
       </fieldset>
       <label for="nobs">Observações</label><input id="nobs" placeholder="Horário, cliente, altura desejada…">
-      <div class="row"><button class="btn p" type="submit">Enviar para a fila</button></div>
-      <p class="small" id="nmsg" aria-live="polite"></p>
+      <div class="row"><button class="btn p" type="submit" id="nenviar">Enviar pedido</button></div>
+      <p class="small" id="nmsg" aria-live="polite" style="white-space:pre-line"></p>
     </form>
   </section>
 
@@ -446,12 +446,19 @@ $('fnovo').addEventListener('submit',async e=>{
   if($('nfim').value&&$('nfim').value<=$('ndata').value){$('nmsg').textContent='O término precisa ser depois do início.';return}
   if(!CLONE&&lp==='acima'&&!(alt>=1&&alt<=120)){$('nmsg').textContent='Informe a altura (1 a 120 m).';return}
   if(!CLONE&&lp==='acima'&&!$('nfim').value){$('nmsg').textContent='Para voar acima do L-ponto, preencha a data de término.';return}
-  $('nmsg').textContent='Enviando…';
-  try{const rr=await apiPost({acao:'novo',lat:pos[1],lon:pos[0],data:$('ndata').value,fim:$('nfim').value,nome:$('nnome').value.trim(),
+  $('nmsg').textContent='Enviando ao SARPAS… pode levar uns 20 segundos.';$('nenviar').disabled=true;
+  try{const rr=await apiPost({acao:'pedir',lat:pos[1],lon:pos[0],data:$('ndata').value,fim:$('nfim').value,nome:$('nnome').value.trim(),
       perfil:document.querySelector('input[name=nperfil]:checked').value,lponto:CLONE?'abaixo':lp,alturaAcima:!CLONE&&lp==='acima'?alt:'',obs:$('nobs').value.trim(),area:AREA||'',clone:CLONE?CLONE.p:''});
-    $('nmsg').textContent=rr.status==='aguardando_aprovacao'?'Enviado. Fica aguardando a aprovação do Heitor; depois a tarefa agendada faz o pedido.':'Na fila. A tarefa agendada processa na próxima hora cheia (7h–22h).';$('fnovo').reset();$('lpbox').classList.add('hide');if(AREA&&!rr.area)$('nmsg').textContent+=' Atenção: o servidor ainda não guardou o desenho; o pedido vai como círculo de 100 m no centro da área.';if(CLONE&&!rr.clone)$('nmsg').textContent+=' Atenção: o servidor ainda não marcou como renovação.';if(CLONE){setClone(null);AREA=null}if(AREA){AREA=null;DP=[];DC=null;setModo(null)}carregarFila()}
+    $('nmsg').textContent=msgPedido(rr);$('fnovo').reset();if((rr.resultados||[]).some(x=>x.protocolo))recarregarBase();$('lpbox').classList.add('hide');if(AREA&&!rr.area)$('nmsg').textContent+=' Atenção: o servidor ainda não guardou o desenho; o pedido vai como círculo de 100 m no centro da área.';if(CLONE&&!rr.clone)$('nmsg').textContent+=' Atenção: o servidor ainda não marcou como renovação.';if(CLONE){setClone(null);AREA=null}if(AREA){AREA=null;DP=[];DC=null;setModo(null)}carregarFila()}
   catch(err){$('nmsg').textContent='Não consegui enviar: '+err.message}
+  finally{$('nenviar').disabled=false}
 });
+function msgPedido(rr){
+  if(rr.via!=='api')return rr.msg||(rr.status==='aguardando_aprovacao'?'Enviado. Fica aguardando a aprovação do Heitor; quando ele aprovar, sai direto pela API.':'Na fila. A tarefa agendada processa na próxima hora cheia (7h–22h).');
+  const st={approved:'APROVADO',pending:'em análise no DECEA',rejected:'negado',failed:'falhou'};
+  return (rr.resultados||[]).map(x=>x.protocolo?`✔ ${x.perfil}: ${st[x.status]||x.status}. Protocolo ${x.protocolo} (${br(x.ini)} a ${br(x.fim)}, ${x.alt} m${x.ajustado?', início ajustado':''}).`
+    :`• ${x.perfil}: ${x.status==='erro'?'erro':'vai pela tarefa agendada'}. ${x.motivo||''}${x.zonas&&x.zonas.length?' ('+x.zonas.join(', ')+')':''}`).join('\n')+((rr.resultados||[]).some(x=>x.protocolo)?'\nO PDF oficial com QR Code aparece no app depois da próxima sincronização.':'')}
+async function recarregarBase(){try{const j=await apiGet({acao:'base'});BASE=j.base;LS.set('vl_base',JSON.stringify(BASE));desenhar();if(pos)verificar(pos,false)}catch(e){}}
 
 /* ---------- prévia do SARPAS (análise preliminar, não cria pedido) ---------- */
 const pvLayer=L.layerGroup().addTo(map);let pvT=null,pvSeq=0,pvUlt='',PVPERFIL='Entorno de Estrutura';
