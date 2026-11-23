@@ -273,7 +273,9 @@ function setModo(m){
   $('dhelp').textContent=m==='c'?'Toque no mapa para pôr o centro (arraste o pino para ajustar) e escolha o raio.':m==='p'?'Toque no mapa marcando os cantos da área, em ordem, contornando o que precisar. Arraste um ponto numerado para ajustar.':'';
   desenharArea()}
 let LASTM='c';
-$('rf').onclick=()=>{$('rf').classList.add('gira');setTimeout(()=>location.replace(location.pathname+'?r='+Date.now()+location.hash),150)};
+$('rf').onclick=async()=>{$('rf').classList.add('gira');const ir=()=>location.replace(location.pathname+'?r='+Date.now()+location.hash);
+  if(EU.admin&&API&&COD){$('sub').textContent='Sincronizando com o SARPAS…';try{await Promise.race([apiPost({acao:'sincronizar'}),new Promise(r=>setTimeout(r,40000))])}catch(e){}}
+  setTimeout(ir,150)};
 $('draw').onclick=()=>setModo(DM?null:LASTM);
 document.querySelectorAll('#dbar [data-m]').forEach(b=>b.onclick=()=>setModo(b.dataset.m));
 $('dundo2').onclick=()=>{DP.pop();desenharArea()};
