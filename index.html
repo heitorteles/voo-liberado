@@ -704,7 +704,7 @@ function desenharHom(){
 }
 /* ---------- pessoas (admin) e permissões de cada piloto ---------- */
 let PTAB='perm',PERM=null,PESS=null;
-const PAPEIS={admin:'Administrador',autonomo:'Autônomo (pede sem aprovação)',piloto:'Piloto (pedido espera aprovação)'};
+const PAPEIS={dono:'Dono (acima do administrador)',admin:'Administrador',autonomo:'Autônomo (pede sem aprovação)',piloto:'Piloto (pedido espera aprovação)'};
 function setPes(open){$('pespg').classList.toggle('hide',!open);document.body.style.overflow=open?'hidden':'';
   if(open){$('pestabs').classList.toggle('hide',!EU.admin);if(!EU.admin)PTAB='perm';mostrarPTab()}}
 function mostrarPTab(){document.querySelectorAll('#pestabs .tab').forEach(x=>{const on=x.dataset.pt===PTAB;x.classList.toggle('on',on);x.setAttribute('aria-selected',on)});
@@ -726,14 +726,15 @@ function desenharPerm(){const P=PERM,box=$('permbox');
     try{PERM=await apiPost({acao:'permissoes',todos:$('pm1').checked,permitidos:[...box.querySelectorAll('.permchips .pchk:checked')].map(i=>i.value)});desenharPerm();$('pmmsg').textContent='Salvo.'}
     catch(e){$('pmmsg').textContent='Erro: '+e.message;b.disabled=false}}}
 async function carregarPessoas(){$('pesmsg').textContent='Carregando…';try{PESS=await apiGet({acao:'pessoas'});$('pesmsg').textContent='';desenharPessoas()}catch(e){$('pesmsg').textContent='Não consegui carregar: '+e.message}}
-function selPapel(v,id){return `<select id="${id}" aria-label="Função">${Object.keys(PAPEIS).map(k=>`<option value="${k}"${k===v?' selected':''}>${PAPEIS[k]}</option>`).join('')}</select>`}
+function selPapel(v,id,trava){const alto=k=>k==='admin'||k==='dono',ks=Object.keys(PAPEIS).filter(k=>EU.dono||!alto(k)||k===v),dis=trava||(!EU.dono&&alto(v));
+  return `<select id="${id}" aria-label="Função"${dis?' disabled title="Só o dono pode mudar"':''}>${ks.map(k=>`<option value="${k}"${k===v?' selected':''}>${PAPEIS[k]}</option>`).join('')}</select>`}
 function selPiloto(v,auto,id){const pa=PESS.pilotos.find(p=>p.cod===auto);return `<select id="${id}" aria-label="Piloto no SARPAS"><option value="">${pa?'Automático: '+esc(pa.nome):'Nenhum piloto'}</option>${PESS.pilotos.map(p=>`<option value="${esc(p.cod)}"${p.cod===v?' selected':''}>${esc(p.nome)} (${esc(p.cod)})</option>`).join('')}</select>`}
 function desenharPessoas(novo){const box=$('admbox');
   box.innerHTML=`<div class="pcard"><b>Cadastrar pessoa</b><div class="lin"><input type="text" id="pnnome" placeholder="Nome (primeiro nome igual ao do SARPAS)" maxlength="40"></div>
     <div class="lin">${selPapel('piloto','pnpapel')}${selPiloto('','','pnpil')}</div><div class="row" style="margin-top:10px"><button class="btn p" id="pnadd" type="button">Cadastrar</button></div><p class="small" id="pnmsg" aria-live="polite"></p></div>
     ${PESS.pessoas.map((x,i)=>`<div class="pcard${x.ativo?'':' off'}" data-i="${i}"><div class="lin" style="margin:0"><input type="text" id="pe_n${i}" value="${esc(x.nome)}" maxlength="40" aria-label="Nome"></div>
-      <div class="lin">${selPapel(x.papel,'pe_p'+i)}${selPiloto(x.piloto,x.pilotoAuto,'pe_s'+i)}</div>
-      <div class="lin"><label style="margin:0;display:flex;align-items:center;gap:6px"><input type="checkbox" id="pe_a${i}"${x.ativo?' checked':''}> Acesso ativo</label>
+      <div class="lin">${selPapel(x.papel,'pe_p'+i,x.nome===EU.nome)}${selPiloto(x.piloto,x.pilotoAuto,'pe_s'+i)}</div>
+      <div class="lin"><label style="margin:0;display:flex;align-items:center;gap:6px"><input type="checkbox" id="pe_a${i}"${x.ativo?' checked':''}${x.nome===EU.nome?' disabled':''}> Acesso ativo</label>
         <button class="lnk" type="button" data-cod="${i}">Mostrar código de acesso</button></div><p class="small pcode hide" id="pe_c${i}"></p>
       <div class="row" style="margin-top:8px"><button class="btn" type="button" data-sv="${i}">Salvar</button></div><p class="small" id="pe_m${i}" aria-live="polite"></p></div>`).join('')}`;
   box.querySelectorAll('[data-cod]').forEach(b=>b.onclick=()=>{const i=+b.dataset.cod,x=PESS.pessoas[i],el=$('pe_c'+i);el.classList.toggle('hide');
