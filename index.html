@@ -43,7 +43,8 @@ body{background:var(--bg);color:var(--ink);font:16px/1.5 Overpass,system-ui,sans
 #ttl{padding-right:46px}
 .grab{position:relative;width:42px;height:5px;border-radius:9px;background:var(--line);margin:0 auto 10px;touch-action:none;cursor:grab}
 .grab::before{content:'';position:absolute;inset:-14px -70px -10px}
-#map{transition:height .3s ease}.sheet{transition:margin-top .3s ease}
+#map{transition:height .3s ease}.sheet{transition:margin-top .3s ease,padding-top .2s ease}
+body.full .sheet{padding-top:calc(14px + env(safe-area-inset-top))}.rf{transition:top .2s ease}body.full .rf{top:calc(10px + env(safe-area-inset-top))}
 body.cmp #map{height:80vh;height:80dvh}
 body.cmp .sheet{margin-top:calc(80vh - 18px);margin-top:calc(80dvh - 18px)}
 body.drw #ttl,body.drw #sub,body.drw .legend,body.drw #slide{display:none}
@@ -338,7 +339,8 @@ function encaixar(){if(toque||Date.now()<snapLock)return;const y=window.scrollY;
     const cheio=y>topoCheio()*0.6;document.body.classList.remove('cmp');setTimeout(()=>map.invalidateSize(),330);
     requestAnimationFrame(()=>irY(cheio?topoCheio():0));return}
   const t=topoCheio();if(y<=0||y>=t-2)return;irY(y<t/2?0:t)}
-function agendarSnap(){clearTimeout(snapT);snapT=setTimeout(encaixar,140)}
+function marcarCheio(){const c=document.body.classList.contains('cmp');document.body.classList.toggle('full',!c&&window.scrollY>=topoCheio()-6)}
+function agendarSnap(){marcarCheio();clearTimeout(snapT);snapT=setTimeout(encaixar,140)}
 window.addEventListener('scroll',agendarSnap,{passive:true});
 window.addEventListener('touchstart',()=>{toque=true;clearTimeout(snapT)},{passive:true});
 window.addEventListener('touchend',()=>{toque=false;agendarSnap()},{passive:true});
