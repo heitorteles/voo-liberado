@@ -740,7 +740,7 @@ function desenharPessoas(novo){const box=$('admbox');
   box.querySelectorAll('[data-cod]').forEach(b=>b.onclick=()=>{const i=+b.dataset.cod,x=PESS.pessoas[i],el=$('pe_c'+i);el.classList.toggle('hide');
     el.innerHTML=`${esc(x.codigo)} <button class="lnk" type="button" id="pe_sh${i}">Enviar</button>`;$('pe_sh'+i).onclick=()=>compartilharCodigo(x.nome,x.codigo)});
   box.querySelectorAll('[data-sv]').forEach(b=>b.onclick=async()=>{const i=+b.dataset.sv,x=PESS.pessoas[i];b.disabled=true;$('pe_m'+i).textContent='Salvando…';
-    try{PESS=await apiPost({acao:'pessoa',codigo:x.codigo,nome:$('pe_n'+i).value.trim(),papel:$('pe_p'+i).value,piloto:$('pe_s'+i).value,ativo:$('pe_a'+i).checked});desenharPessoas();$('pesmsg').textContent=x.nome+': salvo.'}
+    try{PESS=await apiPost({acao:'pessoa',alvo:x.codigo,nome:$('pe_n'+i).value.trim(),papel:$('pe_p'+i).value,piloto:$('pe_s'+i).value,ativo:$('pe_a'+i).checked});desenharPessoas();$('pesmsg').textContent=x.nome+': salvo.'}
     catch(e){$('pe_m'+i).textContent='Erro: '+e.message;b.disabled=false}});
   $('pnadd').onclick=async()=>{const nome=$('pnnome').value.trim();if(!nome){$('pnmsg').textContent='Escreva o nome.';return}
     $('pnadd').disabled=true;$('pnmsg').textContent='Cadastrando…';
