@@ -237,7 +237,7 @@ html{overflow-x:hidden}.sheet{width:100%;max-width:100vw;overflow-x:hidden}
 <button class="fab pes" id="pesbt" type="button" aria-label="Pessoas e permissões"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="7" r="3"/><path d="M6.5 20v-1.5a5.5 5.5 0 0 1 11 0V20"/><circle cx="4.5" cy="9.5" r="2.2"/><path d="M1 19v-1a3.6 3.6 0 0 1 4.6-3.4"/><circle cx="19.5" cy="9.5" r="2.2"/><path d="M23 19v-1a3.6 3.6 0 0 0-4.6-3.4"/></svg></button>
 <div class="pg hide" id="pespg" role="dialog" aria-modal="true" aria-labelledby="pestit">
   <div class="pgbox">
-    <div class="pghead"><div style="flex:1;min-width:0"><h2 id="pestit">Pessoas</h2><p class="small" id="pessub" style="margin:2px 0 0">Quem pode colocar você nos pedidos de voo.</p></div><button class="btn p" id="pesx" type="button">Fechar</button></div>
+    <div class="pghead"><div style="flex:1;min-width:0"><h2 id="pestit">Pessoas</h2><p class="small" id="pessub" style="margin:2px 0 0">Quem pode colocar você nos pedidos e ver suas aeronaves.</p></div><button class="btn p" id="pesx" type="button">Fechar</button></div>
     <div class="tabs hide" role="tablist" id="pestabs"><button class="tab on" role="tab" type="button" data-pt="perm" aria-selected="true">Quem pode me incluir</button><button class="tab" role="tab" type="button" data-pt="adm" aria-selected="false">Pessoas e acessos</button></div>
     <div class="pgbody"><p class="small" id="pesmsg" aria-live="polite"></p><div id="permbox"></div><div id="admbox" class="hide"></div></div>
   </div>
@@ -695,7 +695,7 @@ function setPes(open){$('pespg').classList.toggle('hide',!open);document.body.st
   if(open){$('pestabs').classList.toggle('hide',!EU.admin);if(!EU.admin)PTAB='perm';mostrarPTab()}}
 function mostrarPTab(){document.querySelectorAll('#pestabs .tab').forEach(x=>{const on=x.dataset.pt===PTAB;x.classList.toggle('on',on);x.setAttribute('aria-selected',on)});
   $('permbox').classList.toggle('hide',PTAB!=='perm');$('admbox').classList.toggle('hide',PTAB!=='adm');
-  $('pessub').textContent=PTAB==='adm'?'Cadastre pilotos, escolha a função e o acesso de cada um.':'Quem pode colocar você nos pedidos de voo.';
+  $('pessub').textContent=PTAB==='adm'?'Cadastre pilotos, escolha a função e o acesso de cada um.':'Quem pode colocar você nos pedidos e ver suas aeronaves.';
   PTAB==='adm'?carregarPessoas():carregarPerm()}
 document.querySelectorAll('#pestabs .tab').forEach(b=>b.onclick=()=>{PTAB=b.dataset.pt;mostrarPTab()});
 async function carregarPerm(){$('pesmsg').textContent='Carregando…';try{PERM=await apiGet({acao:'permissoes'});$('pesmsg').textContent='';desenharPerm()}catch(e){$('pesmsg').textContent='Não consegui carregar: '+e.message}}
@@ -704,8 +704,8 @@ function desenharPerm(){const P=PERM,box=$('permbox');
   const todos=P.permitidos==null,set=new Set(P.permitidos||[]);
   box.innerHTML=`<div class="pcard"><p class="small" style="margin:0">Seu piloto no SARPAS</p><b>${esc(P.meuNome||P.meu)} (${esc(P.meu)})</b>
     <div class="seg" style="margin-top:10px;grid-template-columns:1fr 1fr"><input type="radio" name="pmodo" id="pm1" value="todos"${todos?' checked':''} class="pchk"><label for="pm1">Todos podem me incluir</label><input type="radio" name="pmodo" id="pm2" value="alguns"${todos?'':' checked'} class="pchk"><label for="pm2">Só quem eu marcar</label></div>
-    <div id="pmlist"${todos?' class="hide"':''}><p class="small" style="margin:10px 0 0">Podem colocar você nos pedidos deles:</p><div class="permchips">${P.pessoas.map((x,i)=>`<input type="checkbox" class="pchk" id="pp${i}" value="${esc(x.id)}"${set.has(x.id)?' checked':''}><label for="pp${i}">${esc(x.nome)}</label>`).join('')||'<span class="small">Ninguém mais cadastrado.</span>'}</div>
-    <p class="small" style="margin:0">Quem não estiver marcado não vê você na lista de pilotos ao pedir voo.</p></div>
+    <div id="pmlist"${todos?' class="hide"':''}><p class="small" style="margin:10px 0 0">Podem colocar você nos pedidos deles e ver suas aeronaves:</p><div class="permchips">${P.pessoas.map((x,i)=>`<input type="checkbox" class="pchk" id="pp${i}" value="${esc(x.id)}"${set.has(x.id)?' checked':''}><label for="pp${i}">${esc(x.nome)}</label>`).join('')||'<span class="small">Ninguém mais cadastrado.</span>'}</div>
+    <p class="small" style="margin:0">Quem não estiver marcado não vê você na lista de pilotos ao pedir voo nem as suas aeronaves e documentos. O administrador sempre vê tudo.</p></div>
     <div class="row" style="margin-top:12px"><button class="btn p" id="pmsave" type="button">Salvar</button></div><p class="small" id="pmmsg" aria-live="polite"></p></div>`;
   box.querySelectorAll('[name=pmodo]').forEach(r=>r.onchange=()=>$('pmlist').classList.toggle('hide',$('pm1').checked));
   $('pmsave').onclick=async()=>{const b=$('pmsave');b.disabled=true;$('pmmsg').textContent='Salvando…';
