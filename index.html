@@ -233,7 +233,7 @@ html{overflow-x:hidden}.sheet{width:100%;max-width:100vw;overflow-x:hidden}
 
 <div class="intro hide" id="intro"><video id="iv" muted playsinline preload="auto"></video><p>toque duas vezes para pular</p></div>
 
-<button class="fab aer" id="aerbt" type="button" aria-label="Aeronaves e documentos"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="5" cy="5" r="2.5"/><circle cx="19" cy="5" r="2.5"/><circle cx="5" cy="19" r="2.5"/><circle cx="19" cy="19" r="2.5"/><path d="M7 7l3 3M17 7l-3 3M7 17l3-3M17 17l-3-3"/><rect x="9.5" y="9.5" width="5" height="5" rx="1.2"/></svg></button>
+<button class="fab aer" id="aerbt" type="button" aria-label="Equipamentos e documentos"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="5" cy="5" r="2.5"/><circle cx="19" cy="5" r="2.5"/><circle cx="5" cy="19" r="2.5"/><circle cx="19" cy="19" r="2.5"/><path d="M7 7l3 3M17 7l-3 3M7 17l3-3M17 17l-3-3"/><rect x="9.5" y="9.5" width="5" height="5" rx="1.2"/></svg></button>
 <button class="fab pes" id="pesbt" type="button" aria-label="Pessoas e permissões"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="7" r="3"/><path d="M6.5 20v-1.5a5.5 5.5 0 0 1 11 0V20"/><circle cx="4.5" cy="9.5" r="2.2"/><path d="M1 19v-1a3.6 3.6 0 0 1 4.6-3.4"/><circle cx="19.5" cy="9.5" r="2.2"/><path d="M23 19v-1a3.6 3.6 0 0 0-4.6-3.4"/></svg></button>
 <div class="pg hide" id="pespg" role="dialog" aria-modal="true" aria-labelledby="pestit">
   <div class="pgbox">
@@ -244,9 +244,9 @@ html{overflow-x:hidden}.sheet{width:100%;max-width:100vw;overflow-x:hidden}
 </div>
 <div class="pg hide" id="aerpg" role="dialog" aria-modal="true" aria-labelledby="aertit">
   <div class="pgbox">
-    <div class="pghead"><div style="flex:1;min-width:0"><h2 id="aertit">Aeronaves <span class="small" id="acount"></span></h2><p class="small" id="aresumo" style="margin:2px 0 0">SISANT e seguro RETA por piloto.</p></div><button class="btn p" id="aerx" type="button">Fechar</button></div>
-    <div class="tabs" role="tablist"><button class="tab on" role="tab" type="button" data-tab="aer" aria-selected="true">Aeronaves</button><button class="tab" role="tab" type="button" data-tab="hom" aria-selected="false">Homologações Anatel</button></div>
-    <div class="pgbody"><p class="small" id="amsg"></p><div id="alist"></div><div id="hlist" class="hide"></div></div>
+    <div class="pghead"><div style="flex:1;min-width:0"><h2 id="aertit">Equipamentos e documentos <span class="small" id="acount"></span></h2><p class="small" id="aresumo" style="margin:2px 0 0">SISANT e seguro RETA por piloto.</p></div><button class="btn p" id="aerx" type="button">Fechar</button></div>
+    <div class="tabs" role="tablist"><button class="tab on" role="tab" type="button" data-tab="aer" aria-selected="true">Aeronaves</button><button class="tab" role="tab" type="button" data-tab="hom" aria-selected="false">Homologações Anatel</button><button class="tab" role="tab" type="button" data-tab="anac" aria-selected="false">Certificado ANAC</button></div>
+    <div class="pgbody"><p class="small" id="amsg"></p><div id="alist"></div><div id="hlist" class="hide"></div><div id="clist" class="hide"></div></div>
   </div>
   <input type="file" id="afile" accept="application/pdf,image/jpeg,image/png" hidden>
 </div>
@@ -675,9 +675,23 @@ let AER=null,AERUP=null;
 const ABERTO=new Set(),MOSTRA=new Set();let OCULT=new Set();try{OCULT=new Set(JSON.parse(LS.get('vl_ocultas')||'[]'))}catch(e){}
 const OLHO='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>',OLHOX='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7c2 0 3.7.6 5.1 1.5M22 12s-3.5 7-10 7c-2 0-3.7-.6-5.1-1.5"/><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"/><path d="M3 3l18 18"/></svg>';
 let TAB='aer',HOM=null;
-function setAer(open){$('aerpg').classList.toggle('hide',!open);document.body.style.overflow=open?'hidden':'';if(open)(TAB==='hom'?carregarHom():carregarAer())}
+function setAer(open){$('aerpg').classList.toggle('hide',!open);document.body.style.overflow=open?'hidden':'';if(open)(TAB==='hom'?carregarHom():TAB==='anac'?carregarAnac():carregarAer())}
 document.querySelectorAll('#aerpg .tab').forEach(b=>b.onclick=()=>{TAB=b.dataset.tab;document.querySelectorAll('#aerpg .tab').forEach(x=>{const on=x===b;x.classList.toggle('on',on);x.setAttribute('aria-selected',on)});
-  $('alist').classList.toggle('hide',TAB!=='aer');$('hlist').classList.toggle('hide',TAB!=='hom');$('amsg').textContent='';TAB==='hom'?carregarHom():(AER?desenharAer():carregarAer())});
+  $('alist').classList.toggle('hide',TAB!=='aer');$('hlist').classList.toggle('hide',TAB!=='hom');$('clist').classList.toggle('hide',TAB!=='anac');$('amsg').textContent='';TAB==='hom'?carregarHom():TAB==='anac'?carregarAnac():(AER?desenharAer():carregarAer())});
+let ANAC=null;
+async function carregarAnac(){
+  if(ANAC)desenharAnac();else $('amsg').textContent='Carregando certificados…';
+  try{ANAC=await apiGet({acao:'certificados'});desenharAnac()}catch(e){$('amsg').textContent='Não consegui carregar: '+e.message}
+}
+function desenharAnac(){if(TAB!=='anac')return;
+  const it=ANAC.itens||[];$('amsg').textContent=ANAC.pasta?'':'A pasta do certificado ANAC não foi encontrada no Drive.';
+  $('acount').textContent='';$('aresumo').textContent='Certificado de piloto ANAC de cada pessoa. Você vê o seu e o de quem liberou para você.';
+  $('clist').innerHTML=(ANAC.temMeu?'':`<div class="pcard"><b>Você ainda não enviou o seu certificado</b><p class="small" style="margin:4px 0 0">PDF, JPG ou PNG, até 12 MB.</p><div class="arow"><button class="btn p" type="button" data-cup="1">Enviar meu certificado</button></div></div>`)+
+    it.map(c=>`<div class="aerc"><div class="thumb" aria-hidden="true" style="font-weight:800;font-size:13px;color:var(--ink)">ANAC</div><div class="info"><b>${esc(c.dono)}</b>${c.meu?' <span class="small">(você)</span>':''}<br><span class="small">Atualizado em ${br(c.atualizado)}</span>
+      <div class="arow"><button class="btn" type="button" data-cid="${esc(c.id)}" data-cn="${esc(c.dono)}">Ver certificado</button>${c.meu?'<button class="btn v" type="button" data-cup="1">Trocar arquivo</button>':''}</div></div></div>`).join('');
+  $('clist').querySelectorAll('[data-cid]').forEach(b=>b.onclick=()=>verDoc('Certificado ANAC '+b.dataset.cn,{acao:'docCertificado',id:b.dataset.cid}));
+  $('clist').querySelectorAll('[data-cup]').forEach(b=>b.onclick=()=>{AERUP={anac:true,btn:b};$('afile').value='';$('afile').click()});
+}
 async function carregarHom(){
   if(HOM)desenharHom();else $('amsg').textContent='Carregando homologações…';
   try{HOM=await apiGet({acao:'homologacoes'});desenharHom()}catch(e){$('amsg').textContent='Não consegui carregar: '+e.message}
@@ -778,6 +792,11 @@ $('afile').addEventListener('change',async()=>{
   const f=$('afile').files[0],up=AERUP;if(!f||!up)return;
   if(!/^(application\/pdf|image\/jpeg|image\/png)$/.test(f.type)){alert('Envie PDF, JPG ou PNG.');return}
   if(f.size>12*1024*1024){alert('Arquivo maior que 12 MB.');return}
+  if(up.anac){up.btn.disabled=true;up.btn.textContent='Enviando…';
+    try{const b64=await new Promise((ok,er)=>{const r=new FileReader();r.onload=()=>ok(String(r.result).split(',')[1]);r.onerror=()=>er(r.error);r.readAsDataURL(f)});
+      await apiPost({acao:'enviarCertificado',mime:f.type,b64});ANAC=null;carregarAnac()}
+    catch(e){up.btn.disabled=false;up.btn.textContent='Erro: '+e.message}
+    return}
   let vence='';if(up.tipo==='reta'){const v=prompt('Vencimento do seguro RETA (dd/mm/aaaa) — pode deixar em branco:','');const m=/^(\d{2})\/(\d{2})\/(\d{4})$/.exec((v||'').trim());if(m)vence=m[3]+'-'+m[2]+'-'+m[1]}
   up.btn.disabled=true;up.btn.textContent='Enviando…';
   try{const b64=await new Promise((ok,er)=>{const r=new FileReader();r.onload=()=>ok(String(r.result).split(',')[1]);r.onerror=()=>er(r.error);r.readAsDataURL(f)});
