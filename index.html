@@ -90,6 +90,9 @@ label,legend{display:block;font-size:14px;color:var(--mute);margin:10px 0 4px;pa
 .list li>span:first-child{flex:1 1 auto;overflow-wrap:anywhere;word-break:break-word}
 .list li>.st{flex:0 0 auto;max-width:42%;overflow:hidden;text-overflow:ellipsis;align-self:flex-start}
 .list li.ir{cursor:pointer}.list li.ir:active{opacity:.7}
+.adono{font-size:16px;margin:16px 0 0;display:flex;gap:8px;align-items:baseline;flex-wrap:wrap}.adono:first-child{margin-top:8px}
+.arow{display:flex;gap:8px;margin-top:8px;flex-wrap:wrap}.arow .btn{min-height:38px;padding:6px 12px;font-size:14px}.btn.v{border-style:dashed;color:var(--mute)}
+.lnk{all:unset;color:var(--ok);font-size:13px;cursor:pointer;text-decoration:underline}
 html{overflow-x:hidden}.sheet{width:100%;max-width:100vw;overflow-x:hidden}
 .list li:first-child{border-top:0}
 .gate{position:fixed;inset:0;z-index:20;background:var(--bg);display:grid;place-items:center;padding:24px}
@@ -181,6 +184,12 @@ html{overflow-x:hidden}.sheet{width:100%;max-width:100vw;overflow-x:hidden}
       <p class="small" id="fmsg">Carregando…</p>
       <ul class="list" id="flist"></ul>
     </div>
+  </section>
+  <section class="card" id="acard">
+    <button class="fhead" id="atog" type="button" aria-expanded="false" aria-controls="abody"><h2>Aeronaves <span class="small" id="acount"></span></h2><span class="chev" aria-hidden="true">▾</span></button>
+    <p class="small" id="aresumo" style="margin:6px 0 0">Documentos SISANT e seguro RETA por piloto.</p>
+    <div id="abody" class="hide"><p class="small" id="amsg"></p><div id="alist"></div></div>
+    <input type="file" id="afile" accept="application/pdf,image/jpeg,image/png" hidden>
   </section>
   <p class="small" id="info"></p>
   <p class="small"><a href="#" id="sair">Trocar código / servidor</a></p>
@@ -445,10 +454,12 @@ map.on('movestart',()=>$('sug').classList.add('hide'));
 /* ---------- PDF ---------- */
 let pdfLib=null;
 const loadScript=src=>new Promise((ok,err)=>{const s=document.createElement('script');s.src=src;s.onload=ok;s.onerror=()=>err(new Error('não carregou o leitor de PDF'));document.head.appendChild(s)});
-async function verPDF(p){
-  const box=$('pdfp');$('pdft').textContent='Autorização '+p;box.innerHTML='<p>Carregando PDF…</p><p class="small">Se ainda não existir, ele é gerado agora a partir do SARPAS e guardado no Drive (uns 10 segundos).</p>';$('pdfv').classList.remove('hide');
+async function verPDF(p){return verDoc('Autorização '+p,{acao:'pdf',p},'<p class="small">Se ainda não existir, ele é gerado agora a partir do SARPAS e guardado no Drive (uns 10 segundos).</p>')}
+async function verDoc(titulo,params,aviso){
+  const box=$('pdfp');$('pdft').textContent=titulo;box.innerHTML='<p>Carregando…</p>'+(aviso||'');$('pdfv').classList.remove('hide');
   try{
-    const j=await apiGet({acao:'pdf',p});
+    const j=await apiGet(params);
+    if(j.mime&&/^image\//.test(j.mime)){box.innerHTML=`<img alt="${esc(titulo)}" src="data:${j.mime};base64,${j.b64}" style="max-width:100%;height:auto;background:#fff;border-radius:8px">`;return}
     const bin=atob(j.b64),data=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)data[i]=bin.charCodeAt(i);
     if(!pdfLib){const B='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/';await loadScript(B+'pdf.worker.min.js');await loadScript(B+'pdf.min.js');pdfLib=window.pdfjsLib}
     const doc=await pdfLib.getDocument({data,isEvalSupported:false}).promise;box.innerHTML='';
@@ -535,6 +546,45 @@ function clonar(b){
 
 /* ---------- fila ---------- */
 function formaTxt(x){try{const a=typeof x==='string'&&x?JSON.parse(x):x;return a&&a.t==='p'?' · polígono '+a.pts.length+' pts':a&&a.t==='c'?' · círculo '+a.r+' m':''}catch(e){return ''}}
+/* ---------- aeronaves ---------- */
+let AER=null,AERUP=null;
+function setAer(open){$('abody').classList.toggle('hide',!open);$('atog').setAttribute('aria-expanded',open?'true':'false');if(open&&!AER)carregarAer()}
+$('atog').onclick=()=>setAer($('abody').classList.contains('hide'));
+async function carregarAer(forcar){
+  $('amsg').textContent='Carregando aeronaves do SARPAS…';
+  try{AER=await apiGet(forcar?{acao:'aeronaves',forcar:'1'}:{acao:'aeronaves'});desenharAer()}catch(e){$('amsg').textContent='Não consegui carregar: '+e.message}
+}
+const DOCN={sisant:'SISANT',reta:'RETA'};
+function btnDoc(x,t){const tem=t==='sisant'?x.temSisant:x.temReta;
+  if(tem)return `<button class="btn" type="button" data-vd="${esc(x.doc)}" data-t="${t}">${DOCN[t]}</button>`+(EU.admin?`<button class="lnk" type="button" data-ud="${esc(x.doc)}" data-t="${t}">trocar</button>`:'');
+  return EU.admin?`<button class="btn v" type="button" data-ud="${esc(x.doc)}" data-t="${t}">+ ${DOCN[t]}</button>`:`<span class="small">${DOCN[t]} pendente</span>`}
+function desenharAer(){
+  const a=AER.aeronaves||[],d=AER.donos||{},g={};a.forEach(x=>(g[x.dono]=g[x.dono]||[]).push(x));
+  const em30=new Date(Date.now()+30*864e5).toISOString().slice(0,10);
+  $('acount').textContent='('+a.length+')';
+  const falta=a.filter(x=>!x.temSisant||!x.temReta).length,venc=a.filter(x=>(x.vence&&x.vence<em30)||(x.retaVence&&x.retaVence<em30)).length;
+  $('aresumo').textContent=(falta?falta+' sem SISANT ou RETA anexado':'Todas com SISANT e RETA')+(venc?' · '+venc+' vencendo em 30 dias':'');
+  $('amsg').textContent='';
+  const cor=v=>!v?'':v<hoje?'color:#e05a4c':v<em30?'color:var(--warn)':'';
+  $('alist').innerHTML=Object.keys(g).sort((x,y)=>(d[y]?1:0)-(d[x]?1:0)||g[y].length-g[x].length).map((k,i)=>`<h3 class="adono">${esc(d[k]||'Piloto sem nome '+(i+1))} <span class="small">${g[k].length} aeronave(s)</span>${EU.admin?` <button class="lnk" type="button" data-nd="${esc(k)}">${d[k]?'renomear':'dar nome'}</button>`:''}</h3>
+    <ul class="list">${g[k].map(x=>`<li><span><b>${esc(x.apelido||x.serie||x.doc)}</b>${EU.admin?` <button class="lnk" type="button" data-na="${esc(x.doc)}">apelido</button>`:''}<br><span class="small">${esc(x.doc)} · ${String(x.pmd).replace('.',',')} kg${x.apelido&&x.serie?' · série '+esc(x.serie):''}${x.vence?` · <span style="${cor(x.vence)}">SISANT até ${br(x.vence)}</span>`:''}${x.retaVence?` · <span style="${cor(x.retaVence)}">RETA até ${br(x.retaVence)}</span>`:''}</span>
+      <span class="arow">${btnDoc(x,'sisant')}${btnDoc(x,'reta')}</span></span></li>`).join('')}</ul>`).join('');
+  $('alist').querySelectorAll('[data-vd]').forEach(b=>b.onclick=()=>verDoc(DOCN[b.dataset.t]+' '+b.dataset.vd,{acao:'docAeronave',pp:b.dataset.vd,tipo:b.dataset.t}));
+  $('alist').querySelectorAll('[data-ud]').forEach(b=>b.onclick=()=>{AERUP={pp:b.dataset.ud,tipo:b.dataset.t,btn:b};$('afile').value='';$('afile').click()});
+  $('alist').querySelectorAll('[data-nd]').forEach(b=>b.onclick=async()=>{const n=prompt('Nome do piloto dono destas aeronaves:',d[b.dataset.nd]||'');if(n===null)return;try{await apiPost({acao:'nomearAer',dono:b.dataset.nd,nome:n});carregarAer()}catch(e){alert(e.message)}});
+  $('alist').querySelectorAll('[data-na]').forEach(b=>b.onclick=async()=>{const x=a.find(y=>y.doc===b.dataset.na);const n=prompt('Apelido da aeronave (ex.: Mavic 4 Pro 1):',x&&x.apelido||'');if(n===null)return;try{await apiPost({acao:'nomearAer',pp:b.dataset.na,nome:n});carregarAer()}catch(e){alert(e.message)}});
+}
+$('afile').addEventListener('change',async()=>{
+  const f=$('afile').files[0],up=AERUP;if(!f||!up)return;
+  if(!/^(application\/pdf|image\/jpeg|image\/png)$/.test(f.type)){alert('Envie PDF, JPG ou PNG.');return}
+  if(f.size>12*1024*1024){alert('Arquivo maior que 12 MB.');return}
+  let vence='';if(up.tipo==='reta'){const v=prompt('Vencimento do seguro RETA (dd/mm/aaaa) — pode deixar em branco:','');const m=/^(\d{2})\/(\d{2})\/(\d{4})$/.exec((v||'').trim());if(m)vence=m[3]+'-'+m[2]+'-'+m[1]}
+  up.btn.disabled=true;up.btn.textContent='Enviando…';
+  try{const b64=await new Promise((ok,er)=>{const r=new FileReader();r.onload=()=>ok(String(r.result).split(',')[1]);r.onerror=()=>er(r.error);r.readAsDataURL(f)});
+    await apiPost({acao:'enviarDoc',pp:up.pp,tipo:up.tipo,mime:f.type,b64,vence});carregarAer()}
+  catch(e){up.btn.disabled=false;up.btn.textContent='Erro: '+e.message}
+});
+
 let FILA=[];
 function irParaPedido(r){
   let a=null;try{a=typeof r.area==='string'&&r.area?JSON.parse(r.area):r.area}catch(e){}
