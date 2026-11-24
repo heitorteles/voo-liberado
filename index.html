@@ -98,6 +98,7 @@ label,legend{display:block;font-size:14px;color:var(--mute);margin:10px 0 4px;pa
 .pg{position:fixed;inset:0;z-index:20;background:rgba(6,14,20,.55);display:flex;flex-direction:column;justify-content:flex-end}
 .pgbox{background:var(--bg);border-radius:22px 22px 0 0;max-height:90vh;max-height:90dvh;display:flex;flex-direction:column;box-shadow:0 -8px 28px rgba(0,0,0,.35)}
 .pghead{display:flex;align-items:center;gap:10px;padding:16px 16px 12px;border-bottom:1px solid var(--line)}.pghead h2{margin:0;font-size:22px}
+.tabs{display:flex;gap:8px;padding:10px 14px 2px;flex-wrap:wrap}.tab{all:unset;box-sizing:border-box;cursor:pointer;padding:8px 14px;border-radius:999px;border:1px solid var(--line);font-weight:700;font-size:14px}.tab.on{background:var(--mag);border-color:var(--mag);color:#fff}.tab:focus-visible{outline:3px solid var(--ok);outline-offset:2px}
 .pgbody{overflow:auto;padding:6px 14px calc(28px + env(safe-area-inset-bottom));-webkit-overflow-scrolling:touch;overscroll-behavior:contain}
 .pil{border:1px solid var(--line);border-radius:16px;margin:10px 0;background:var(--card);overflow:hidden}
 .pilh{all:unset;box-sizing:border-box;display:flex;align-items:center;gap:12px;width:100%;padding:14px;cursor:pointer}
@@ -222,7 +223,8 @@ html{overflow-x:hidden}.sheet{width:100%;max-width:100vw;overflow-x:hidden}
 <div class="pg hide" id="aerpg" role="dialog" aria-modal="true" aria-labelledby="aertit">
   <div class="pgbox">
     <div class="pghead"><div style="flex:1;min-width:0"><h2 id="aertit">Aeronaves <span class="small" id="acount"></span></h2><p class="small" id="aresumo" style="margin:2px 0 0">SISANT e seguro RETA por piloto.</p></div><button class="btn p" id="aerx" type="button">Fechar</button></div>
-    <div class="pgbody"><p class="small" id="amsg"></p><div id="alist"></div></div>
+    <div class="tabs" role="tablist"><button class="tab on" role="tab" type="button" data-tab="aer" aria-selected="true">Aeronaves</button><button class="tab" role="tab" type="button" data-tab="hom" aria-selected="false">Homologações Anatel</button></div>
+    <div class="pgbody"><p class="small" id="amsg"></p><div id="alist"></div><div id="hlist" class="hide"></div></div>
   </div>
   <input type="file" id="afile" accept="application/pdf,image/jpeg,image/png" hidden>
 </div>
@@ -577,7 +579,20 @@ desenharPils();
 /* ---------- aeronaves ---------- */
 let AER=null,AERUP=null;
 const ABERTO=new Set();
-function setAer(open){$('aerpg').classList.toggle('hide',!open);document.body.style.overflow=open?'hidden':'';if(open)carregarAer()}
+let TAB='aer',HOM=null;
+function setAer(open){$('aerpg').classList.toggle('hide',!open);document.body.style.overflow=open?'hidden':'';if(open)(TAB==='hom'?carregarHom():carregarAer())}
+document.querySelectorAll('#aerpg .tab').forEach(b=>b.onclick=()=>{TAB=b.dataset.tab;document.querySelectorAll('#aerpg .tab').forEach(x=>{const on=x===b;x.classList.toggle('on',on);x.setAttribute('aria-selected',on)});
+  $('alist').classList.toggle('hide',TAB!=='aer');$('hlist').classList.toggle('hide',TAB!=='hom');$('amsg').textContent='';TAB==='hom'?carregarHom():(AER?desenharAer():carregarAer())});
+async function carregarHom(){
+  if(HOM)desenharHom();else $('amsg').textContent='Carregando homologações…';
+  try{HOM=await apiGet({acao:'homologacoes'});desenharHom()}catch(e){$('amsg').textContent='Não consegui carregar: '+e.message}
+}
+function desenharHom(){
+  const it=HOM.itens||[];$('amsg').textContent=it.length?'':'Nenhum certificado na pasta ANATEL ainda.';
+  $('acount').textContent='';$('aresumo').textContent=it.length+' certificado(s) de homologação Anatel — valem para todos os equipamentos do modelo.';
+  $('hlist').innerHTML=it.map(h=>`<div class="aerc"><div class="thumb" aria-hidden="true" style="font-weight:800;font-size:13px;color:var(--ink)">ANATEL</div><div class="info"><b>${esc(h.titulo)}</b><br><span class="small">${h.numero?'Certificado nº '+esc(h.numero):''}</span><div class="arow"><button class="btn" type="button" data-hid="${esc(h.id)}" data-ht="${esc(h.titulo)}">Ver certificado</button></div></div></div>`).join('');
+  $('hlist').querySelectorAll('[data-hid]').forEach(b=>b.onclick=()=>verDoc('Anatel · '+b.dataset.ht,{acao:'docHomolog',id:b.dataset.hid}));
+}
 $('aerbt').onclick=()=>setAer(true);$('aerx').onclick=()=>setAer(false);
 $('aerpg').addEventListener('click',e=>{if(e.target===$('aerpg'))setAer(false)});
 document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!$('aerpg').classList.contains('hide')&&$('pdfv').classList.contains('hide'))setAer(false)});
@@ -591,6 +606,7 @@ function btnDoc(x,t){const tem=t==='sisant'?x.temSisant:x.temReta;
   if(tem)return `<button class="btn" type="button" data-vd="${esc(x.doc)}" data-t="${t}">${DOCN[t]}</button>`+(x.posso?`<button class="lnk" type="button" data-ud="${esc(x.doc)}" data-t="${t}">trocar</button>`:'');
   return x.posso?`<button class="btn v" type="button" data-ud="${esc(x.doc)}" data-t="${t}">+ ${DOCN[t]}</button>`:`<span class="small">${DOCN[t]} pendente</span>`}
 function desenharAer(){
+  if(TAB!=='aer')return;
   const a=AER.aeronaves||[],d=AER.donos||{},g={};a.forEach(x=>(g[x.dono]=g[x.dono]||[]).push(x));
   const em30=new Date(Date.now()+30*864e5).toISOString().slice(0,10);
   $('acount').textContent='('+a.length+')';
