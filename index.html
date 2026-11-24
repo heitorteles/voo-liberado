@@ -90,7 +90,20 @@ label,legend{display:block;font-size:14px;color:var(--mute);margin:10px 0 4px;pa
 .list li>span:first-child{flex:1 1 auto;overflow-wrap:anywhere;word-break:break-word}
 .list li>.st{flex:0 0 auto;max-width:42%;overflow:hidden;text-overflow:ellipsis;align-self:flex-start}
 .list li.ir{cursor:pointer}.list li.ir:active{opacity:.7}
-.adono{font-size:16px;margin:16px 0 0;display:flex;gap:8px;align-items:baseline;flex-wrap:wrap}.adono:first-child{margin-top:8px}
+.fab.aer{position:fixed;z-index:5;right:10px;top:calc(env(safe-area-inset-top) + 118px)}
+.pg{position:fixed;inset:0;z-index:20;background:rgba(6,14,20,.55);display:flex;flex-direction:column;justify-content:flex-end}
+.pgbox{background:var(--bg);border-radius:22px 22px 0 0;max-height:90vh;max-height:90dvh;display:flex;flex-direction:column;box-shadow:0 -8px 28px rgba(0,0,0,.35)}
+.pghead{display:flex;align-items:center;gap:10px;padding:16px 16px 12px;border-bottom:1px solid var(--line)}.pghead h2{margin:0;font-size:22px}
+.pgbody{overflow:auto;padding:6px 14px calc(28px + env(safe-area-inset-bottom));-webkit-overflow-scrolling:touch;overscroll-behavior:contain}
+.pil{border:1px solid var(--line);border-radius:16px;margin:10px 0;background:var(--card);overflow:hidden}
+.pilh{all:unset;box-sizing:border-box;display:flex;align-items:center;gap:12px;width:100%;padding:14px;cursor:pointer}
+.pilh:focus-visible{outline:3px solid var(--ok);outline-offset:-3px}
+.av{width:42px;height:42px;border-radius:50%;background:var(--mag);color:#fff;display:grid;place-items:center;font-weight:800;flex:none}
+.pilh .chev{margin-left:auto;transition:transform .2s}.pil.open .pilh .chev{transform:rotate(180deg)}
+.pilb{display:none;padding:0 14px 6px}.pil.open .pilb{display:block}
+.aerc{display:flex;gap:12px;padding:12px 0;border-top:1px solid var(--line)}
+.thumb{width:56px;height:56px;border-radius:12px;background:var(--bg);border:1px solid var(--line);display:grid;place-items:center;flex:none;color:var(--mute)}.thumb svg{width:30px;height:30px}
+.aerc .info{flex:1;min-width:0;overflow-wrap:anywhere}
 .arow{display:flex;gap:8px;margin-top:8px;flex-wrap:wrap}.arow .btn{min-height:38px;padding:6px 12px;font-size:14px}.btn.v{border-style:dashed;color:var(--mute)}
 .lnk{all:unset;color:var(--ok);font-size:13px;cursor:pointer;text-decoration:underline}
 html{overflow-x:hidden}.sheet{width:100%;max-width:100vw;overflow-x:hidden}
@@ -185,12 +198,6 @@ html{overflow-x:hidden}.sheet{width:100%;max-width:100vw;overflow-x:hidden}
       <ul class="list" id="flist"></ul>
     </div>
   </section>
-  <section class="card" id="acard">
-    <button class="fhead" id="atog" type="button" aria-expanded="false" aria-controls="abody"><h2>Aeronaves <span class="small" id="acount"></span></h2><span class="chev" aria-hidden="true">▾</span></button>
-    <p class="small" id="aresumo" style="margin:6px 0 0">Documentos SISANT e seguro RETA por piloto.</p>
-    <div id="abody" class="hide"><p class="small" id="amsg"></p><div id="alist"></div></div>
-    <input type="file" id="afile" accept="application/pdf,image/jpeg,image/png" hidden>
-  </section>
   <p class="small" id="info"></p>
   <p class="small"><a href="#" id="sair">Trocar código / servidor</a></p>
 </section>
@@ -206,6 +213,14 @@ html{overflow-x:hidden}.sheet{width:100%;max-width:100vw;overflow-x:hidden}
 
 <div class="intro hide" id="intro"><video id="iv" muted playsinline preload="auto"></video><p>toque duas vezes para pular</p></div>
 
+<button class="fab aer" id="aerbt" type="button" aria-label="Aeronaves e documentos"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="5" cy="5" r="2.5"/><circle cx="19" cy="5" r="2.5"/><circle cx="5" cy="19" r="2.5"/><circle cx="19" cy="19" r="2.5"/><path d="M7 7l3 3M17 7l-3 3M7 17l3-3M17 17l-3-3"/><rect x="9.5" y="9.5" width="5" height="5" rx="1.2"/></svg></button>
+<div class="pg hide" id="aerpg" role="dialog" aria-modal="true" aria-labelledby="aertit">
+  <div class="pgbox">
+    <div class="pghead"><div style="flex:1;min-width:0"><h2 id="aertit">Aeronaves <span class="small" id="acount"></span></h2><p class="small" id="aresumo" style="margin:2px 0 0">SISANT e seguro RETA por piloto.</p></div><button class="btn p" id="aerx" type="button">Fechar</button></div>
+    <div class="pgbody"><p class="small" id="amsg"></p><div id="alist"></div></div>
+  </div>
+  <input type="file" id="afile" accept="application/pdf,image/jpeg,image/png" hidden>
+</div>
 <div class="pdfv hide" id="pdfv" role="dialog" aria-modal="true">
   <div class="pdfbar"><b id="pdft">Autorização</b><button class="btn p" id="pdfx" type="button">Fechar</button></div>
   <div class="pdfpages" id="pdfp"></div>
@@ -548,16 +563,20 @@ function clonar(b){
 function formaTxt(x){try{const a=typeof x==='string'&&x?JSON.parse(x):x;return a&&a.t==='p'?' · polígono '+a.pts.length+' pts':a&&a.t==='c'?' · círculo '+a.r+' m':''}catch(e){return ''}}
 /* ---------- aeronaves ---------- */
 let AER=null,AERUP=null;
-function setAer(open){$('abody').classList.toggle('hide',!open);$('atog').setAttribute('aria-expanded',open?'true':'false');if(open&&!AER)carregarAer()}
-$('atog').onclick=()=>setAer($('abody').classList.contains('hide'));
+const ABERTO=new Set();
+function setAer(open){$('aerpg').classList.toggle('hide',!open);document.body.style.overflow=open?'hidden':'';if(open)carregarAer()}
+$('aerbt').onclick=()=>setAer(true);$('aerx').onclick=()=>setAer(false);
+$('aerpg').addEventListener('click',e=>{if(e.target===$('aerpg'))setAer(false)});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!$('aerpg').classList.contains('hide')&&$('pdfv').classList.contains('hide'))setAer(false)});
 async function carregarAer(forcar){
   $('amsg').textContent='Carregando aeronaves do SARPAS…';
+  if(AER)desenharAer();
   try{AER=await apiGet(forcar?{acao:'aeronaves',forcar:'1'}:{acao:'aeronaves'});desenharAer()}catch(e){$('amsg').textContent='Não consegui carregar: '+e.message}
 }
 const DOCN={sisant:'SISANT',reta:'RETA'};
 function btnDoc(x,t){const tem=t==='sisant'?x.temSisant:x.temReta;
-  if(tem)return `<button class="btn" type="button" data-vd="${esc(x.doc)}" data-t="${t}">${DOCN[t]}</button>`+(EU.admin?`<button class="lnk" type="button" data-ud="${esc(x.doc)}" data-t="${t}">trocar</button>`:'');
-  return EU.admin?`<button class="btn v" type="button" data-ud="${esc(x.doc)}" data-t="${t}">+ ${DOCN[t]}</button>`:`<span class="small">${DOCN[t]} pendente</span>`}
+  if(tem)return `<button class="btn" type="button" data-vd="${esc(x.doc)}" data-t="${t}">${DOCN[t]}</button>`+(x.posso?`<button class="lnk" type="button" data-ud="${esc(x.doc)}" data-t="${t}">trocar</button>`:'');
+  return x.posso?`<button class="btn v" type="button" data-ud="${esc(x.doc)}" data-t="${t}">+ ${DOCN[t]}</button>`:`<span class="small">${DOCN[t]} pendente</span>`}
 function desenharAer(){
   const a=AER.aeronaves||[],d=AER.donos||{},g={};a.forEach(x=>(g[x.dono]=g[x.dono]||[]).push(x));
   const em30=new Date(Date.now()+30*864e5).toISOString().slice(0,10);
@@ -566,9 +585,13 @@ function desenharAer(){
   $('aresumo').textContent=(falta?falta+' sem SISANT ou RETA anexado':'Todas com SISANT e RETA')+(venc?' · '+venc+' vencendo em 30 dias':'');
   $('amsg').textContent='';
   const cor=v=>!v?'':v<hoje?'color:#e05a4c':v<em30?'color:var(--warn)':'';
-  $('alist').innerHTML=Object.keys(g).sort((x,y)=>(d[y]?1:0)-(d[x]?1:0)||g[y].length-g[x].length).map((k,i)=>`<h3 class="adono">${esc(d[k]||'Piloto sem nome '+(i+1))} <span class="small">${g[k].length} aeronave(s)</span>${EU.admin?` <button class="lnk" type="button" data-nd="${esc(k)}">${d[k]?'renomear':'dar nome'}</button>`:''}</h3>
-    <ul class="list">${g[k].map(x=>`<li><span><b>${esc(x.apelido||x.serie||x.doc)}</b>${EU.admin?` <button class="lnk" type="button" data-na="${esc(x.doc)}">apelido</button>`:''}<br><span class="small">${esc(x.doc)} · ${String(x.pmd).replace('.',',')} kg${x.apelido&&x.serie?' · série '+esc(x.serie):''}${x.vence?` · <span style="${cor(x.vence)}">SISANT até ${br(x.vence)}</span>`:''}${x.retaVence?` · <span style="${cor(x.retaVence)}">RETA até ${br(x.retaVence)}</span>`:''}</span>
-      <span class="arow">${btnDoc(x,'sisant')}${btnDoc(x,'reta')}</span></span></li>`).join('')}</ul>`).join('');
+  const ICON='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="5" cy="5" r="2.5"/><circle cx="19" cy="5" r="2.5"/><circle cx="5" cy="19" r="2.5"/><circle cx="19" cy="19" r="2.5"/><path d="M7 7l3 3M17 7l-3 3M7 17l3-3M17 17l-3-3"/><rect x="9.5" y="9.5" width="5" height="5" rx="1.2"/></svg>';
+  const ini=n=>String(n||'?').trim().split(/\s+/).slice(0,2).map(w=>w[0]).join('').toUpperCase();
+  $('alist').innerHTML=Object.keys(g).sort((x,y)=>(d[y]?1:0)-(d[x]?1:0)||(d[x]==='Heitor'?-1:d[y]==='Heitor'?1:0)||g[y].length-g[x].length).map((k,i)=>{const L=g[k],nm=d[k]||'Piloto sem nome '+(i+1),pend=L.filter(x=>!x.temSisant||!x.temReta).length,vc=L.filter(x=>(x.vence&&x.vence<em30)||(x.retaVence&&x.retaVence<em30)).length;
+    return `<section class="pil${ABERTO.has(k)?' open':''}" data-pil="${esc(k)}"><button class="pilh" type="button" aria-expanded="${ABERTO.has(k)}"><span class="av">${esc(ini(nm))}</span><span style="min-width:0"><b>${esc(nm)}</b><br><span class="small">${L.length} aeronave(s)${pend?' · '+pend+' sem documento':' · documentos ok'}${vc?' · <span style="color:var(--warn)">'+vc+' vencendo</span>':''}</span></span><span class="chev" aria-hidden="true">▾</span></button>
+    <div class="pilb">${EU.admin?`<p class="small" style="margin:0 0 6px"><button class="lnk" type="button" data-nd="${esc(k)}">${d[k]?'renomear piloto':'dar nome ao piloto'}</button></p>`:''}${L.map(x=>`<div class="aerc"><div class="thumb" aria-hidden="true">${ICON}</div><div class="info"><b>${esc(x.apelido||x.serie||x.doc)}</b>${EU.admin?` <button class="lnk" type="button" data-na="${esc(x.doc)}">apelido</button>`:''}<br><span class="small">${esc(x.doc)} · ${String(x.pmd).replace('.',',')} kg${x.apelido&&x.serie?' · série '+esc(x.serie):''}${x.vence?` · <span style="${cor(x.vence)}">SISANT até ${br(x.vence)}</span>`:''}${x.retaVence?` · <span style="${cor(x.retaVence)}">RETA até ${br(x.retaVence)}</span>`:''}</span>
+      <div class="arow">${btnDoc(x,'sisant')}${btnDoc(x,'reta')}</div></div></div>`).join('')}</div></section>`}).join('');
+  $('alist').querySelectorAll('.pilh').forEach(h=>h.onclick=()=>{const sec=h.closest('.pil'),k=sec.dataset.pil,op=!sec.classList.contains('open');sec.classList.toggle('open',op);h.setAttribute('aria-expanded',op);op?ABERTO.add(k):ABERTO.delete(k)});
   $('alist').querySelectorAll('[data-vd]').forEach(b=>b.onclick=()=>verDoc(DOCN[b.dataset.t]+' '+b.dataset.vd,{acao:'docAeronave',pp:b.dataset.vd,tipo:b.dataset.t}));
   $('alist').querySelectorAll('[data-ud]').forEach(b=>b.onclick=()=>{AERUP={pp:b.dataset.ud,tipo:b.dataset.t,btn:b};$('afile').value='';$('afile').click()});
   $('alist').querySelectorAll('[data-nd]').forEach(b=>b.onclick=async()=>{const n=prompt('Nome do piloto dono destas aeronaves:',d[b.dataset.nd]||'');if(n===null)return;try{await apiPost({acao:'nomearAer',dono:b.dataset.nd,nome:n});carregarAer()}catch(e){alert(e.message)}});
