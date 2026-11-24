@@ -2,7 +2,7 @@
 <html lang="pt-BR">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <title>Voo Liberado</title>
 <meta name="theme-color" content="#d6127e">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -20,6 +20,7 @@
 @media(prefers-color-scheme:dark){:root{--bg:#0d1c24;--card:#132a35;--ink:#e9f1f4;--mute:#93a8b2;--line:#24414f}}
 *{box-sizing:border-box;min-width:0}
 html,body{margin:0;height:100%}
+html{-webkit-text-size-adjust:100%;text-size-adjust:100%}body{touch-action:pan-x pan-y}#map{touch-action:none}
 body{background:var(--bg);color:var(--ink);font:16px/1.5 Overpass,system-ui,sans-serif;overflow-x:clip}
 #map{position:fixed;inset:0 0 auto 0;height:52vh;height:52dvh;z-index:1;background:#bfe3ee}
 .top{position:fixed;z-index:5;left:0;right:0;top:0;padding:calc(env(safe-area-inset-top) + 8px) 10px 0;display:flex;gap:8px}
@@ -304,6 +305,10 @@ function desenhar(){
   if(hit)camada.eachLayer(l=>{if(l.options.color==='#d6127e')l.bringToFront()});
 }
 map.on('click',e=>{const p=[e.latlng.lng,e.latlng.lat];if(DM){addPonto(p);return}verificar(p,false)});
+/* zoom só no mapa: bloqueia pinça e duplo toque do navegador no resto da tela (o Leaflet cuida do zoom do mapa) */
+['gesturestart','gesturechange','gestureend'].forEach(t=>document.addEventListener(t,e=>e.preventDefault(),{passive:false}));
+document.addEventListener('touchmove',e=>{if(e.touches.length>1&&!e.target.closest('#map'))e.preventDefault()},{passive:false});
+let ultToque=0;document.addEventListener('touchend',e=>{const t=Date.now();if(t-ultToque<300&&!e.target.closest('#map,input,textarea,select,button,a,label'))e.preventDefault();ultToque=t},{passive:false});
 document.querySelectorAll('.lf').forEach(x=>x.onclick=()=>{const f=x.dataset.f;FILTRO.has(f)?FILTRO.delete(f):FILTRO.add(f);LS.set('vl_filtro',JSON.stringify([...FILTRO]));marcarFiltro();if(pos&&!DM)verificar(pos,false);else desenhar()});
 marcarFiltro();
 
