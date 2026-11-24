@@ -592,7 +592,8 @@ function pvInfoBaixo(r,cat){PVR=r;const ab=areaBase(),ativo=DECOL&&ab&&DECOL.sig
   if(helis.length){const hm=helis.reduce((a,b)=>b[1]<a[1]?b:a),livre=Math.floor(hm[1]-r.elev-2);
     t+='Heliponto mais baixo: '+hm[0]+' a '+hm[1]+' m. '+(livre>=1?'Decolando a '+r.elev+' m, dá para voar até '+livre+' m de altura sem passar dele.':'Mesmo no chão a '+r.elev+' m, o voo ficaria acima dele.');
     if(livre>=1&&livre!==r.alt)t+=' <button class="lnk" type="button" id="pvusa">Usar '+Math.min(120,livre)+' m</button>'}
-  $('pvlowmsg').innerHTML=t;const u=$('pvusa');if(u)u.onclick=()=>{$('pvalt').value=Math.min(120,Math.floor(helis.reduce((a,b)=>b[1]<a[1]?b:a)[1]-r.elev-2));pvUlt='';agendarPrevia()}}
+  const falta=(r.helis||[]).filter(h=>!(h[1]>0)).map(h=>h[0]);if(falta.length)t+=' Sem elevação no ROTAER (fora da conta, confira): '+falta.join(', ')+'.';
+  $('pvlowmsg').innerHTML=t;const u=$('pvusa');if(u)u.onclick=()=>{$('pvalt').value=Math.min(120,Math.floor(helis.reduce((a,b)=>b[1]<a[1]?b:a)[1]-r.elev-2));pvUlt='';if(AREA)$('naltmax').value=$('pvalt').value;agendarPrevia()}}
 function amostrasArea(a){const out=[];
   if(a.t==='c'){const [lo,la]=a.c,k=111320,cs=Math.cos(la*Math.PI/180);out.push([lo,la]);
     [[.33,8],[.66,14],[.97,22]].forEach(([f,n])=>{for(let i=0;i<n;i++){const t=i/n*2*Math.PI;out.push([lo+Math.cos(t)*a.r*f/(k*cs),la+Math.sin(t)*a.r*f/k])}});return out}
