@@ -446,7 +446,7 @@ function verificar(p,centrar=true){
     $('slide').classList.remove('off');$('stxt').textContent='deslize para liberar o voo';
   }else{
     const near=BASE.filter(b=>ok(b)&&vig(b)).map(b=>[b,edgeDist(p,b.geo)]).sort((a,b)=>a[1]-b[1])[0];
-    $('ttl').textContent='Sem pedido aqui';
+    $('ttl').textContent=OCULTOS?'Pedido escondido pelo filtro':'Sem pedido aqui';
     $('sub').textContent=(OCULTOS?(OCULTOS===1?'1 pedido aqui está escondido':OCULTOS+' pedidos aqui estão escondidos')+' pelo filtro da legenda. ':'')+(cands.length?'Há pedido no local, mas vencido, futuro ou não aprovado. ':'')+(!OCULTOS&&near?'O vigente mais perto está a '+fmtD(near[1])+'.':'');
     $('slide').classList.add('off');$('stxt').textContent='nenhum pedido vigente';
     $('novo').classList.remove('hide');if(!$('ndata').value)$('ndata').value=hoje;
