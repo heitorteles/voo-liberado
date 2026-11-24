@@ -134,6 +134,7 @@ html{overflow-x:hidden}.sheet{width:100%;max-width:100vw;overflow-x:hidden}
 .pdfpages p{color:#e9f1f4;text-align:center}
 .leaflet-container{font:inherit}
 .legend{display:flex;gap:14px;flex-wrap:wrap;font-size:13px;color:var(--mute);margin:4px 0 0}
+.lf{all:unset;cursor:pointer;border-radius:8px;padding:2px 4px;margin:-2px -4px}.lf:focus-visible{outline:2px solid var(--ok)}.lf.off{opacity:.4;text-decoration:line-through}
 .legend i{display:inline-block;width:12px;height:12px;border-radius:3px;margin-right:5px;vertical-align:-1px}
 .intro{position:fixed;inset:0;z-index:50;background:#000;transition:opacity .6s}
 .intro video{width:100%;height:100%;object-fit:cover;display:block}
@@ -158,7 +159,7 @@ html{overflow-x:hidden}.sheet{width:100%;max-width:100vw;overflow-x:hidden}
   <button class="rf" id="rf" type="button" aria-label="Atualizar o app, a base e a fila"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 4v7h-7"/></svg></button>
   <h1 id="ttl">Posso voar aqui?</h1>
   <p class="sub" id="sub">Toque no alvo para usar o GPS, busque um lugar ou toque no mapa.</p>
-  <div class="legend"><span><i style="background:rgba(31,111,209,.35);border:1px solid #1f6fd1"></i>Pedidos vigentes</span><span><i style="background:rgba(214,18,126,.35);border:1px solid #d6127e"></i>Selecionado</span><span><i style="background:rgba(194,90,0,.25);border:1px dashed #c25a00"></i>Aprovado, começa depois</span><span><i style="background:rgba(30,158,90,.25);border:1px dashed #1e9e5a"></i>Aguardando análise</span></div>
+  <div class="legend" role="group" aria-label="Mostrar ou esconder tipos de pedido no mapa"><button type="button" class="lf" data-f="vig" aria-pressed="true"><i style="background:rgba(31,111,209,.35);border:1px solid #1f6fd1"></i>Pedidos vigentes</button><span><i style="background:rgba(214,18,126,.35);border:1px solid #d6127e"></i>Selecionado</span><button type="button" class="lf" data-f="fut" aria-pressed="true"><i style="background:rgba(194,90,0,.25);border:1px dashed #c25a00"></i>Aprovado, começa depois</button><button type="button" class="lf" data-f="pend" aria-pressed="true"><i style="background:rgba(30,158,90,.25);border:1px dashed #1e9e5a"></i>Aguardando análise</button></div>
 
   <div class="slide off" id="slide"><div class="fill" id="fill"></div><div class="txt" id="stxt">deslize para liberar o voo</div>
     <div class="knob" id="knob" tabindex="0"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round"><path d="M9 5l7 7-7 7"/></svg></div></div>
@@ -287,10 +288,13 @@ const sat=L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Worl
 let satOn=false;$('sat').onclick=()=>{satOn=!satOn;if(satOn){map.removeLayer(ruas);sat.addTo(map)}else{map.removeLayer(sat);ruas.addTo(map)}$('sat').classList.toggle('on',satOn)};
 const camada=L.layerGroup().addTo(map);let eu=null,euCirc=null,alvo=null;
 const ll=g=>g.map(poly=>poly.map(r=>r.map(q=>[q[1],q[0]])));
+let FILTRO=new Set();try{FILTRO=new Set(JSON.parse(LS.get('vl_filtro')||'[]'))}catch(e){}
+const tipoPed=b=>pend(b)?'pend':b.ini>hoje?'fut':'vig';
+function marcarFiltro(){document.querySelectorAll('.lf').forEach(x=>{const off=FILTRO.has(x.dataset.f);x.classList.toggle('off',off);x.setAttribute('aria-pressed',off?'false':'true')})}
 function desenhar(){
   camada.clearLayers();
   const ordem=b=>pend(b)?0:b.ini>hoje?2:1;
-  BASE.filter(b=>(ok(b)||pend(b))&&b.fim>=hoje&&b.geo&&b.geo.length).sort((a,b)=>ordem(a)-ordem(b)).forEach(b=>{
+  BASE.filter(b=>(ok(b)||pend(b))&&b.fim>=hoje&&b.geo&&b.geo.length&&(b===hit||!FILTRO.has(tipoPed(b)))).sort((a,b)=>ordem(a)-ordem(b)).forEach(b=>{
     const sel=b===hit,cobre=CHIPS.includes(b),pe=pend(b),fut=!pe&&b.ini>hoje,cor=sel?'#d6127e':pe?'#1e9e5a':fut?'#c25a00':'#1f6fd1';
     const pl=L.polygon(ll(b.geo),{color:cor,weight:sel?3:cobre?2:1,fillOpacity:sel?.22:cobre?.16:.08,fillColor:cor,dashArray:(fut||pe)&&!sel?(pe?'3 6':'6 6'):null});
     pl.bindTooltip(`${b.p} · ${b.alt} m${pe?' · em análise':''}`,{sticky:true});
@@ -300,6 +304,8 @@ function desenhar(){
   if(hit)camada.eachLayer(l=>{if(l.options.color==='#d6127e')l.bringToFront()});
 }
 map.on('click',e=>{const p=[e.latlng.lng,e.latlng.lat];if(DM){addPonto(p);return}verificar(p,false)});
+document.querySelectorAll('.lf').forEach(x=>x.onclick=()=>{const f=x.dataset.f;FILTRO.has(f)?FILTRO.delete(f):FILTRO.add(f);LS.set('vl_filtro',JSON.stringify([...FILTRO]));marcarFiltro();desenhar()});
+marcarFiltro();
 
 /* ---------- desenhar área do pedido novo ---------- */
 let DM=null,DC=null,DR=100,DP=[],AREA=null;
