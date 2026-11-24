@@ -598,9 +598,13 @@ function clonar(b){
 function formaTxt(x){try{const a=typeof x==='string'&&x?JSON.parse(x):x;return a&&a.t==='p'?' · polígono '+a.pts.length+' pts':a&&a.t==='c'?' · círculo '+a.r+' m':''}catch(e){return ''}}
 /* ---------- pilotos do pedido ---------- */
 let PILS=null;try{PILS=JSON.parse(LS.get('vl_pils')||'null')}catch(e){}
-function desenharPils(){if(!PILS)return;$('npil').innerHTML=PILS.map((p,i)=>`<input type="checkbox" class="pchk" id="pl${i}" value="${esc(p.cod)}"${p.padrao?' checked':''}><label for="pl${i}">${esc(p.nome)}</label>`).join('')}
+let PTOQUE=false;
+const pnome=n=>String(n||'').trim().split(/\s+/)[0].normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
+function meuPil(){const n=pnome(EU&&EU.nome);return n&&PILS?PILS.find(p=>pnome(p.nome)===n):null}
+function desenharPils(){if(!PILS)return;const eu=meuPil();$('npil').innerHTML=PILS.map((p,i)=>`<input type="checkbox" class="pchk" id="pl${i}" value="${esc(p.cod)}"${(eu?p===eu:p.padrao)?' checked':''}><label for="pl${i}">${esc(p.nome)}</label>`).join('')}
 function pilotosEscolhidos(){return [...document.querySelectorAll('#npil .pchk:checked')].map(i=>i.value)}
-async function carregarPils(){try{const j=await apiGet({acao:'pilotos'});const marc=PILS?pilotosEscolhidos():null;PILS=j.pilotos;LS.set('vl_pils',JSON.stringify(PILS));desenharPils();if(marc&&marc.length)document.querySelectorAll('#npil .pchk').forEach(i=>i.checked=marc.includes(i.value))}catch(e){if(!PILS)$('npil').innerHTML='<span class="small">Não consegui carregar a lista; o pedido vai com Heitor, Guilherme e Felipe.</span>'}}
+$('npil').addEventListener('change',()=>{PTOQUE=true});
+async function carregarPils(){try{const j=await apiGet({acao:'pilotos'});const marc=PILS&&PTOQUE?pilotosEscolhidos():null;PILS=j.pilotos;LS.set('vl_pils',JSON.stringify(PILS));desenharPils();if(marc&&marc.length)document.querySelectorAll('#npil .pchk').forEach(i=>i.checked=marc.includes(i.value))}catch(e){if(!PILS)$('npil').innerHTML='<span class="small">Não consegui carregar a lista; o pedido vai com Heitor, Guilherme e Felipe.</span>'}}
 desenharPils();
 
 /* ---------- aeronaves ---------- */
@@ -717,7 +721,7 @@ async function abertura(){
 async function iniciar(){
   abertura();
   try{const c=LS.get('vl_base');if(c){BASE=JSON.parse(c);desenhar()}}catch(e){}
-  try{EU=await apiGet({acao:'ping'})}catch(e){if(/código|bloqueado/.test(e.message)){pedirConfig(e.message);return}}
+  try{EU=await apiGet({acao:'ping'});if(!PTOQUE)desenharPils()}catch(e){if(/código|bloqueado/.test(e.message)){pedirConfig(e.message);return}}
   try{const j=await apiGet({acao:'base'});BASE=j.base;LS.set('vl_base',JSON.stringify(BASE));
     $('info').textContent='Base: '+BASE.length+' pedidos, '+BASE.filter(b=>ok(b)&&vig(b)).length+' vigentes hoje ('+br(hoje)+'). Atualizada em '+new Date(j.atualizado).toLocaleString('pt-BR')+'.'+(EU.nome?' Conectado como '+EU.nome+'.':'');
     desenhar();if(pos)verificar(pos,false);
