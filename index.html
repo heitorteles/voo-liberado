@@ -304,7 +304,7 @@ function desenhar(){
   if(hit)camada.eachLayer(l=>{if(l.options.color==='#d6127e')l.bringToFront()});
 }
 map.on('click',e=>{const p=[e.latlng.lng,e.latlng.lat];if(DM){addPonto(p);return}verificar(p,false)});
-document.querySelectorAll('.lf').forEach(x=>x.onclick=()=>{const f=x.dataset.f;FILTRO.has(f)?FILTRO.delete(f):FILTRO.add(f);LS.set('vl_filtro',JSON.stringify([...FILTRO]));marcarFiltro();desenhar()});
+document.querySelectorAll('.lf').forEach(x=>x.onclick=()=>{const f=x.dataset.f;FILTRO.has(f)?FILTRO.delete(f):FILTRO.add(f);LS.set('vl_filtro',JSON.stringify([...FILTRO]));marcarFiltro();if(pos&&!DM)verificar(pos,false);else desenhar()});
 marcarFiltro();
 
 /* ---------- desenhar área do pedido novo ---------- */
@@ -420,7 +420,8 @@ function edgeDist(pt,g){let m=1e12;for(const poly of g)for(const p of poly[0]){c
 function verificar(p,centrar=true){
   if(DM){if(centrar)map.setView([p[1],p[0]],Math.max(map.getZoom(),16));if(DM==='c'&&!DC){DC=p.slice();desenharArea()}return}
   pos=p;AREA=null;setClone(null);$('ntit').textContent='Pedir voo neste local';
-  const cands=BASE.filter(b=>inGeo(p[0],p[1],b.geo));
+  const todos=BASE.filter(b=>inGeo(p[0],p[1],b.geo)),ativo=b=>(ok(b)||pend(b))&&b.fim>=hoje;
+  const cands=todos.filter(b=>!(ativo(b)&&FILTRO.has(tipoPed(b)))),OCULTOS=todos.length-cands.length;
   LIVE=cands.filter(b=>ok(b)&&vig(b)).sort((a,b)=>b.alt-a.alt||b.fim.localeCompare(a.fim));
   const FUT=cands.filter(b=>ok(b)&&b.ini>hoje&&b.fim>=hoje).sort((a,b)=>a.ini.localeCompare(b.ini)||b.alt-a.alt);
   const PEND=cands.filter(b=>pend(b)&&b.fim>=hoje).sort((a,b)=>b.ini.localeCompare(a.ini));
@@ -446,7 +447,7 @@ function verificar(p,centrar=true){
   }else{
     const near=BASE.filter(b=>ok(b)&&vig(b)).map(b=>[b,edgeDist(p,b.geo)]).sort((a,b)=>a[1]-b[1])[0];
     $('ttl').textContent='Sem pedido aqui';
-    $('sub').textContent=(cands.length?'Há pedido no local, mas vencido, futuro ou não aprovado. ':'')+(near?'O vigente mais perto está a '+fmtD(near[1])+'.':'');
+    $('sub').textContent=(OCULTOS?(OCULTOS===1?'1 pedido aqui está escondido':OCULTOS+' pedidos aqui estão escondidos')+' pelo filtro da legenda. ':'')+(cands.length?'Há pedido no local, mas vencido, futuro ou não aprovado. ':'')+(!OCULTOS&&near?'O vigente mais perto está a '+fmtD(near[1])+'.':'');
     $('slide').classList.add('off');$('stxt').textContent='nenhum pedido vigente';
     $('novo').classList.remove('hide');if(!$('ndata').value)$('ndata').value=hoje;
   }
