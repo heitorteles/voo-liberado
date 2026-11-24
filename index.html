@@ -87,6 +87,10 @@ label,legend{display:block;font-size:14px;color:var(--mute);margin:10px 0 4px;pa
 .hide{display:none!important}
 .list{list-style:none;padding:0;margin:8px 0 0}
 .list li{display:flex;justify-content:space-between;gap:10px;padding:10px 0;border-top:1px solid var(--line);font-size:15px}
+.list li>span:first-child{flex:1 1 auto;overflow-wrap:anywhere;word-break:break-word}
+.list li>.st{flex:0 0 auto;max-width:42%;overflow:hidden;text-overflow:ellipsis;align-self:flex-start}
+.list li.ir{cursor:pointer}.list li.ir:active{opacity:.7}
+html{overflow-x:hidden}.sheet{width:100%;max-width:100vw;overflow-x:hidden}
 .list li:first-child{border-top:0}
 .gate{position:fixed;inset:0;z-index:20;background:var(--bg);display:grid;place-items:center;padding:24px}
 .gate .card{width:min(420px,100%)}
@@ -121,7 +125,7 @@ label,legend{display:block;font-size:14px;color:var(--mute);margin:10px 0 4px;pa
   <button class="rf" id="rf" type="button" aria-label="Atualizar o app, a base e a fila"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 4v7h-7"/></svg></button>
   <h1 id="ttl">Posso voar aqui?</h1>
   <p class="sub" id="sub">Toque no alvo para usar o GPS, busque um lugar ou toque no mapa.</p>
-  <div class="legend"><span><i style="background:rgba(31,111,209,.35);border:1px solid #1f6fd1"></i>Pedidos vigentes</span><span><i style="background:rgba(214,18,126,.35);border:1px solid #d6127e"></i>Selecionado</span><span><i style="background:rgba(194,90,0,.25);border:1px dashed #c25a00"></i>Aprovado, começa depois</span></div>
+  <div class="legend"><span><i style="background:rgba(31,111,209,.35);border:1px solid #1f6fd1"></i>Pedidos vigentes</span><span><i style="background:rgba(214,18,126,.35);border:1px solid #d6127e"></i>Selecionado</span><span><i style="background:rgba(194,90,0,.25);border:1px dashed #c25a00"></i>Aprovado, começa depois</span><span><i style="background:rgba(30,158,90,.25);border:1px dashed #1e9e5a"></i>Aguardando análise</span></div>
 
   <div class="slide off" id="slide"><div class="fill" id="fill"></div><div class="txt" id="stxt">deslize para liberar o voo</div>
     <div class="knob" id="knob" tabindex="0"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round"><path d="M9 5l7 7-7 7"/></svg></div></div>
@@ -208,6 +212,7 @@ let API=LS.get('vl_api'),COD=LS.get('vl_cod');
 let BASE=[],LIVE=[],CHIPS=[],pos=null,hit=null,gpsOn=false,watch=null,EU={nome:'',admin:false};
 const hoje=new Date(Date.now()-3*3600e3).toISOString().slice(0,10);
 const ok=p=>/aprovado/i.test(p.st)&&!/negado/i.test(p.st);
+const pend=p=>!ok(p)&&!/negad|cancel|expir|reprov/i.test(p.st)&&/an[aá]lise|aguardando|processamento|fila/i.test(p.st);
 const vig=p=>p.ini<=hoje&&hoje<=p.fim;
 const br=d=>d?d.split('-').reverse().join('/'):'';
 const fmtD=m=>m<1000?Math.round(m)+' m':(m/1000).toFixed(1).replace('.',',')+' km';
@@ -231,10 +236,11 @@ const camada=L.layerGroup().addTo(map);let eu=null,euCirc=null,alvo=null;
 const ll=g=>g.map(poly=>poly.map(r=>r.map(q=>[q[1],q[0]])));
 function desenhar(){
   camada.clearLayers();
-  BASE.filter(b=>ok(b)&&b.fim>=hoje).sort((a,b)=>(a.ini>hoje)-(b.ini>hoje)).forEach(b=>{
-    const sel=b===hit,cobre=CHIPS.includes(b),fut=b.ini>hoje;
-    const pl=L.polygon(ll(b.geo),{color:sel?'#d6127e':fut?'#c25a00':'#1f6fd1',weight:sel?3:cobre?2:1,fillOpacity:sel?.22:cobre?.16:.08,fillColor:sel?'#d6127e':fut?'#c25a00':'#1f6fd1',dashArray:fut&&!sel?'6 6':null});
-    pl.bindTooltip(`${b.p} · ${b.alt} m`,{sticky:true});
+  const ordem=b=>pend(b)?0:b.ini>hoje?2:1;
+  BASE.filter(b=>(ok(b)||pend(b))&&b.fim>=hoje&&b.geo&&b.geo.length).sort((a,b)=>ordem(a)-ordem(b)).forEach(b=>{
+    const sel=b===hit,cobre=CHIPS.includes(b),pe=pend(b),fut=!pe&&b.ini>hoje,cor=sel?'#d6127e':pe?'#1e9e5a':fut?'#c25a00':'#1f6fd1';
+    const pl=L.polygon(ll(b.geo),{color:cor,weight:sel?3:cobre?2:1,fillOpacity:sel?.22:cobre?.16:.08,fillColor:cor,dashArray:(fut||pe)&&!sel?(pe?'3 6':'6 6'):null});
+    pl.bindTooltip(`${b.p} · ${b.alt} m${pe?' · em análise':''}`,{sticky:true});
     pl.on('click',e=>{L.DomEvent.stopPropagation(e);const q=[e.latlng.lng,e.latlng.lat];if(DM)addPonto(q);else verificar(q,false);});
     pl.addTo(camada);
   });
@@ -340,20 +346,25 @@ function verificar(p,centrar=true){
   const cands=BASE.filter(b=>inGeo(p[0],p[1],b.geo));
   LIVE=cands.filter(b=>ok(b)&&vig(b)).sort((a,b)=>b.alt-a.alt||b.fim.localeCompare(a.fim));
   const FUT=cands.filter(b=>ok(b)&&b.ini>hoje&&b.fim>=hoje).sort((a,b)=>a.ini.localeCompare(b.ini)||b.alt-a.alt);
+  const PEND=cands.filter(b=>pend(b)&&b.fim>=hoje).sort((a,b)=>b.ini.localeCompare(a.ini));
   if(!LIVE.length&&FUT.length)LIVE=FUT;
-  CHIPS=LIVE===FUT?FUT:LIVE.concat(FUT);
-  hit=LIVE[0]||null;
+  CHIPS=(LIVE===FUT?FUT:LIVE.concat(FUT)).concat(PEND);
+  hit=LIVE[0]||PEND[0]||null;
   if(alvo)map.removeLayer(alvo);
   alvo=L.circleMarker([p[1],p[0]],{radius:9,color:'#fff',weight:3,fillColor:'#d6127e',fillOpacity:1}).addTo(map);
   if(centrar)map.setView([p[1],p[0]],Math.max(map.getZoom(),15));
   $('res').classList.add('hide');$('novo').classList.add('hide');resetSlide();
-  if(hit&&hit.ini>hoje){
+  if(hit&&pend(hit)){
+    $('ttl').textContent='Pedido em análise';
+    $('sub').textContent=(PEND.length===1?'O pedido '+hit.p+' está':PEND.length+' pedidos estão')+' aguardando análise no SARPAS (verde tracejado). Ainda não libera o voo.';
+    $('slide').classList.remove('off');$('stxt').textContent='deslize para ver o pedido';
+  }else if(hit&&hit.ini>hoje){
     $('ttl').textContent='Liberado a partir de '+br(hit.ini);
     $('sub').textContent='Pedido aprovado para este ponto, mas ele só começa a valer em '+br(hit.ini)+'. Hoje ainda não pode voar por ele.';
     $('slide').classList.remove('off');$('stxt').textContent='deslize para ver o pedido';
   }else if(hit){
     $('ttl').textContent='Área coberta';
-    $('sub').textContent=(LIVE.length===1?'1 pedido vigente cobre este ponto.':LIVE.length+' pedidos vigentes cobrem este ponto.')+(FUT.length?' Há também '+FUT.length+' aprovado(s) que começa(m) depois (tracejado laranja no mapa) — deslize para ver todos.':'');
+    $('sub').textContent=(LIVE.length===1?'1 pedido vigente cobre este ponto.':LIVE.length+' pedidos vigentes cobrem este ponto.')+(FUT.length?' Há também '+FUT.length+' aprovado(s) que começa(m) depois (tracejado laranja no mapa) — deslize para ver todos.':'')+(PEND.length?' E '+PEND.length+' em análise (verde).':'');
     $('slide').classList.remove('off');$('stxt').textContent='deslize para liberar o voo';
   }else{
     const near=BASE.filter(b=>ok(b)&&vig(b)).map(b=>[b,edgeDist(p,b.geo)]).sort((a,b)=>a[1]-b[1])[0];
@@ -368,16 +379,17 @@ function verificar(p,centrar=true){
 /* ---------- resultado ---------- */
 function mostrar(){
   const b=hit,st=/autom/i.test(b.st)?'':' w';
-  const chips=CHIPS.length>1?`<p class="small" style="margin:0 0 6px">${CHIPS.length} pedidos aprovados cobrem este ponto — toque em cada um:</p><div class="chips">${CHIPS.map(x=>`<button type="button" class="btn${x===b?' p':''}" data-p="${esc(x.p)}"${x.ini>hoje&&x!==b?' style="border-color:#c25a00;border-style:dashed"':''}>${esc(x.p)} · ${x.alt} m · ${x.tipo==='Padrão'?'Padrão':'Entorno'}${x.ini>hoje?' · a partir de '+br(x.ini).slice(0,5):''}</button>`).join('')}</div>`:'';
-  $('res').innerHTML=chips+`<span class="st${st}">${esc(b.st)}</span>${b.ini>hoje?` <span class="st w">Vale a partir de ${br(b.ini)}</span>`:''}
+  const pe=pend(b);
+  const chips=CHIPS.length>1?`<p class="small" style="margin:0 0 6px">${CHIPS.length} pedidos cobrem este ponto — toque em cada um:</p><div class="chips">${CHIPS.map(x=>`<button type="button" class="btn${x===b?' p':''}" data-p="${esc(x.p)}"${x!==b&&(pend(x)||x.ini>hoje)?` style="border-color:${pend(x)?'#1e9e5a':'#c25a00'};border-style:dashed"`:''}>${esc(x.p)} · ${x.alt} m · ${x.tipo==='Padrão'?'Padrão':'Entorno'}${pend(x)?' · em análise':x.ini>hoje?' · a partir de '+br(x.ini).slice(0,5):''}</button>`).join('')}</div>`:'';
+  $('res').innerHTML=chips+`<span class="st${st}">${esc(b.st)}</span>${pe?` <span class="st c">Ainda não libera o voo</span>`:b.ini>hoje?` <span class="st w">Vale a partir de ${br(b.ini)}</span>`:''}
   <p class="small" style="margin:10px 0 0">Protocolo SARPAS</p><div class="big">${esc(b.p)}</div>
   <dl><dt>Operação</dt><dd>${esc(b.nome)}</dd><dt>Perfil</dt><dd>${esc(b.tipo)}</dd><dt>Altura</dt><dd>${b.alt} m ${esc(b.ref)}</dd>
   <dt>Validade</dt><dd>${br(b.ini)} até ${br(b.fim)}</dd><dt>Horário</dt><dd>${esc(b.hor)}</dd><dt>Pilotos</dt><dd>${esc((b.pil||[]).join(', '))}</dd></dl>
-  <div class="row"><button class="btn p" id="vp" type="button">Ver autorização (PDF)</button><button class="btn" id="cp" type="button">Copiar protocolo</button>
+  <div class="row"><button class="btn p" id="vp" type="button"${pe?' disabled title="O PDF sai quando o pedido for aprovado"':''}>${pe?'PDF quando aprovar':'Ver autorização (PDF)'}</button><button class="btn" id="cp" type="button">Copiar protocolo</button>
   <a class="btn" href="https://sarpas.decea.mil.br/consulta-protocolo?queryProtocol=${encodeURIComponent(b.p)}" target="_blank" rel="noopener">Ver no SARPAS</a>
   <button class="btn" id="cl" type="button">Clonar / renovar</button></div>
   <p class="small" id="cpm">O PDF é o documento oficial do SARPAS, com QR Code.</p>`;
-  $('res').classList.remove('hide');$('ttl').textContent=b.ini>hoje?'Liberado a partir de '+br(b.ini):'Voo liberado';
+  $('res').classList.remove('hide');$('ttl').textContent=pe?'Pedido em análise':b.ini>hoje?'Liberado a partir de '+br(b.ini):'Voo liberado';
   $('res').querySelectorAll('[data-p]').forEach(e=>e.onclick=()=>{hit=CHIPS.find(x=>x.p===e.dataset.p)||hit;mostrar();desenhar();
     const pl=L.polygon(ll(hit.geo));map.fitBounds(pl.getBounds(),{padding:[20,20],maxZoom:17})});
   $('vp').onclick=()=>verPDF(b.p);
@@ -523,16 +535,32 @@ function clonar(b){
 
 /* ---------- fila ---------- */
 function formaTxt(x){try{const a=typeof x==='string'&&x?JSON.parse(x):x;return a&&a.t==='p'?' · polígono '+a.pts.length+' pts':a&&a.t==='c'?' · círculo '+a.r+' m':''}catch(e){return ''}}
+let FILA=[];
+function irParaPedido(r){
+  let a=null;try{a=typeof r.area==='string'&&r.area?JSON.parse(r.area):r.area}catch(e){}
+  const prot=String(r.protocolo||'').split(/\s*·\s*/).filter(Boolean),b=BASE.find(x=>prot.includes(x.p)&&x.geo&&x.geo.length);
+  let bounds=null,c=null;
+  if(b){const pl=L.polygon(ll(b.geo));bounds=pl.getBounds();const m=bounds.getCenter();c=b.dec&&b.dec.length===2?b.dec:[m.lng,m.lat]}
+  else if(a&&a.t==='c'){c=a.c;bounds=L.latLng(a.c[1],a.c[0]).toBounds(a.r*2.4)}
+  else if(a&&a.t==='p'){bounds=L.latLngBounds(a.pts.map(q=>[q[1],q[0]]));const m=bounds.getCenter();c=[m.lng,m.lat]}
+  else if(+r.lat&&+r.lon){c=[+r.lon,+r.lat];bounds=L.latLng(c[1],c[0]).toBounds(250)}
+  if(!c)return;
+  window.scrollTo({top:0,behavior:'smooth'});
+  verificar(c,false);map.fitBounds(bounds,{padding:[30,30],maxZoom:17});
+  if(!b&&a){const g=a.t==='c'?L.circle([a.c[1],a.c[0]],{radius:a.r,color:'#1e9e5a',dashArray:'3 6',weight:2,fillOpacity:.1}):L.polygon(a.pts.map(q=>[q[1],q[0]]),{color:'#1e9e5a',dashArray:'3 6',weight:2,fillOpacity:.1});g.addTo(camada)}
+}
 const ST={aguardando_aprovacao:'Aguardando aprovação',pendente:'Na fila',processando:'Processando',aguardando_login:'Falta login',precisa_termo:'Precisa Termo',erro:'Erro',feito:'Feito'};
 async function carregarFila(){
-  try{const j=await apiGet({acao:'fila'});const f=j.fila||[];
+  try{const j=await apiGet({acao:'fila'});const f=(j.fila||[]).filter(r=>r.status!=='erro');
     $('fmsg').textContent=f.length?'':'Nenhum pedido ainda.';
     {const aguard=f.filter(r=>r.status==='aguardando_aprovacao').length,na=f.filter(r=>/pendente|processando/.test(r.status)).length;
      $('fcount').textContent=f.length?'('+f.length+')':'';
      const partes=[];if(na)partes.push(na+' na fila');if(aguard)partes.push(aguard+(EU.admin?' aguardando sua aprovação':' aguardando aprovação'));
      if(!partes.length&&f[0])partes.push('Último: '+(f[0].nome||'sem nome')+' · '+(f[0].status==='feito'&&f[0].protocolo?f[0].protocolo:(ST[f[0].status]||f[0].status)));
      $('fresumo').textContent=partes.join(' · ');$('fresumo').style.color=aguard&&EU.admin?'var(--mag)':''}
-    $('flist').innerHTML=f.slice(0,12).map(r=>`<li><span>${esc(r.nome||'Sem nome')}<br><span class="small">${r.quem?esc(r.quem)+' · ':''}${br(String(r.data).slice(0,10))} · ${esc(r.perfil)}${formaTxt(r.area)}${r.clone?' · renova '+esc(r.clone):''}${r.nota?' · '+esc(r.nota):''}</span>${EU.admin&&r.status==='aguardando_aprovacao'?`<br><button class="btn p" type="button" data-ap="${esc(r.id)}" style="margin-top:6px">Aprovar pedido</button>`:''}</span><span class="st ${r.status==='feito'?'':'m'}">${esc(r.status==='feito'&&r.protocolo?r.protocolo:(ST[r.status]||r.status))}</span></li>`).join('');
+    FILA=f.slice(0,3);
+    $('flist').innerHTML=FILA.map((r,i)=>`<li class="ir" data-ir="${i}"><span>${esc(r.nome||'Sem nome')}<br><span class="small">${r.quem?esc(r.quem)+' · ':''}${br(String(r.data).slice(0,10))} · ${esc(r.perfil)}${formaTxt(r.area)}${r.clone?' · renova '+esc(r.clone):''}${r.nota?' · '+esc(r.nota):''}</span>${EU.admin&&r.status==='aguardando_aprovacao'?`<br><button class="btn p" type="button" data-ap="${esc(r.id)}" style="margin-top:6px">Aprovar pedido</button>`:''}</span><span class="st ${r.status==='feito'?'':'m'}">${esc(r.status==='feito'&&r.protocolo?r.protocolo:(ST[r.status]||r.status))}</span></li>`).join('');
+    $('flist').querySelectorAll('[data-ir]').forEach(li=>li.onclick=e=>{if(e.target.closest('[data-ap]'))return;irParaPedido(FILA[+li.dataset.ir])});
     $('flist').querySelectorAll('[data-ap]').forEach(b=>b.onclick=async()=>{b.disabled=true;b.textContent='Aprovando…';try{await apiPost({acao:'aprovar',id:b.dataset.ap});carregarFila()}catch(e){b.textContent='Erro: '+e.message}});
   }catch(e){$('fmsg').textContent='Fila indisponível: '+e.message}
 }
