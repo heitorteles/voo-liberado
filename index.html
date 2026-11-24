@@ -95,6 +95,7 @@ label,legend{display:block;font-size:14px;color:var(--mute);margin:10px 0 4px;pa
 #npil{flex-wrap:wrap;overflow:visible}.pchk{position:absolute;opacity:0;pointer-events:none}
 .pchk+label{display:inline-flex;align-items:center;gap:6px;min-height:40px;padding:6px 12px;border-radius:999px;border:1px solid var(--line);background:var(--card);font-weight:600;font-size:14px;cursor:pointer;margin:0}
 .pchk:checked+label{background:var(--mag);border-color:var(--mag);color:#fff}.pchk:focus-visible+label{outline:3px solid var(--ok);outline-offset:2px}
+.dcl{width:28px;height:28px;border-radius:50%;background:#1e9e5a;border:2px solid #fff;display:grid;place-items:center;box-shadow:0 1px 5px rgba(0,0,0,.4)}
 .zm{position:fixed;z-index:5;left:10px;bottom:calc(20vh + 30px);bottom:calc(20dvh + 30px);display:none;flex-direction:column;gap:8px}body.cmp .zm{display:flex}.zm .fab{font-size:26px;font-weight:700;line-height:1}
 .fab.aer{position:fixed;z-index:5;right:10px;top:calc(env(safe-area-inset-top) + 118px)}
 .pg{position:fixed;inset:0;z-index:20;background:rgba(6,14,20,.55);display:flex;flex-direction:column;justify-content:flex-end}
@@ -166,6 +167,8 @@ html{overflow-x:hidden}.sheet{width:100%;max-width:100vw;overflow-x:hidden}
         <span class="small" style="display:flex;align-items:center;gap:6px"><label for="pvalt" style="margin:0">Altura</label><input id="pvalt" type="number" min="1" max="120" value="120" inputmode="numeric" style="width:78px;min-height:38px;padding:6px 8px;margin:0"> m</span>
       </div>
       <p class="small" id="pvmsg" style="margin:8px 0 0"></p>
+      <div id="pvlowbox" class="hide" style="margin-top:8px"><button class="chip" type="button" id="pvlow"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="vertical-align:-3px;margin-right:4px"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M4 20h16"/></svg>Decolar do ponto mais baixo</button>
+        <p class="small" id="pvlowmsg" style="margin:6px 0 0" aria-live="polite"></p></div>
     </div>
     <div id="dcirc"><label for="draio">Raio: <b id="draiov">100</b> m</label><input id="draio" type="range" min="10" max="1000" step="5" value="100"></div>
     <div class="row" id="dpoly"><button class="btn g" type="button" id="dundo">Desfazer ponto</button><button class="btn g" type="button" id="dclear">Limpar</button></div>
@@ -298,10 +301,12 @@ function cruza(pts){const p=plano(pts),n=p.length;if(n<4)return false;
     const a=p[i],b=p[(i+1)%n],c=p[j],d=p[(j+1)%n];if(o(a,b,c)*o(a,b,d)<0&&o(c,d,a)*o(c,d,b)<0)return true}
   return false}
 const fmtA=a=>a<10000?Math.round(a).toLocaleString('pt-BR')+' m²':(a/10000).toFixed(2).replace('.',',')+' ha';
-function areaAtual(){
+let DECOL=null;
+function areaBase(){
   if(DM==='c'&&DC)return{t:'c',c:r6(DC),r:DR};
   if(DM==='p'&&DP.length>=3&&!cruza(DP))return{t:'p',pts:DP.map(r6)};
   return null}
+function areaAtual(){const a=areaBase();if(a&&DECOL&&DECOL.sig===JSON.stringify(a))a.d=DECOL.d;return a}
 function setModo(m){
   DM=m;$('draw').classList.toggle('on',!!m);$('draw').setAttribute('aria-pressed',m?'true':'false');
   $('drawtag').textContent=m==='c'?'○':m==='p'?'△':'';
@@ -369,6 +374,7 @@ function desenharArea(){
     DP.forEach((q,i)=>L.marker([q[1],q[0]],{draggable:true,icon:vIcon(i+1)}).addTo(dLayer)
       .on('drag',ev=>{const g=ev.target.getLatLng();DP[i]=[g.lng,g.lat];sh.setLatLngs(lls())}).on('dragend',infoArea));
   }
+  const ab=areaBase();if(DECOL&&ab&&DECOL.sig===JSON.stringify(ab))L.marker([DECOL.d[1],DECOL.d[0]],{interactive:false,icon:L.divIcon({className:'',html:'<div class="dcl"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11"/><path d="m7 10 5 5 5-5"/><path d="M5 20h14"/></svg></div>',iconSize:[28,28],iconAnchor:[14,14]})}).addTo(dLayer);
   infoArea()}
 function infoArea(){
   let t='';
@@ -572,8 +578,43 @@ function mostrarPrevia(r){
   $('pvst').textContent=/aprov|aceit/i.test(cat)?'Aprovação automática':/negad/i.test(cat)?'Não passa assim':(r.rotulo||'Análise manual');
   const ids=[...new Set((r.restricoes||[]).map(x=>x.id).filter(Boolean))];
   $('pvmsg').textContent=(r.motivo||'')+(ids.length?' Zonas cruzadas: '+ids.join(', ')+'.':'')+` (${r.perfil}, ${r.alt} m, terreno ${r.elev} m. Só uma prévia: nada foi pedido.)`;
+  pvInfoBaixo(r,cat);
   (r.restricoes||[]).forEach(f=>{try{L.geoJSON(f.geo,{style:{color:'#e0242b',weight:2,fillColor:'#e0242b',fillOpacity:.07,dashArray:'4 5'}})
     .bindTooltip([f.camada.toUpperCase(),f.id,f.tipo,f.modo].filter(Boolean).join(' · '),{sticky:true}).addTo(pvLayer)}catch(e){}})}
+
+/* ---------- ponto mais baixo da área (decolagem) ---------- */
+let PVR=null;
+function pvInfoBaixo(r,cat){PVR=r;const ab=areaBase(),ativo=DECOL&&ab&&DECOL.sig===JSON.stringify(ab);
+  const helis=(r.helis||[]).filter(h=>h[1]>0);const mostra=ativo||helis.length||!/aprov|aceit/i.test(cat);
+  $('pvlowbox').classList.toggle('hide',!mostra);if(!mostra)return;
+  $('pvlow').classList.toggle('on',!!ativo);$('pvlow').lastChild.textContent=ativo?'Decolando do ponto mais baixo · voltar ao centro':'Decolar do ponto mais baixo';
+  let t=ativo?'Decolagem no ponto mais baixo da área: '+DECOL.elev+' m acima do mar'+(DECOL.cen!=null?' (o centro está a '+DECOL.cen+' m)':'')+'. ':'';
+  if(helis.length){const hm=helis.reduce((a,b)=>b[1]<a[1]?b:a),livre=Math.floor(hm[1]-r.elev-2);
+    t+='Heliponto mais baixo: '+hm[0]+' a '+hm[1]+' m. '+(livre>=1?'Decolando a '+r.elev+' m, dá para voar até '+livre+' m de altura sem passar dele.':'Mesmo no chão a '+r.elev+' m, o voo ficaria acima dele.');
+    if(livre>=1&&livre!==r.alt)t+=' <button class="lnk" type="button" id="pvusa">Usar '+Math.min(120,livre)+' m</button>'}
+  $('pvlowmsg').innerHTML=t;const u=$('pvusa');if(u)u.onclick=()=>{$('pvalt').value=Math.min(120,Math.floor(helis.reduce((a,b)=>b[1]<a[1]?b:a)[1]-r.elev-2));pvUlt='';agendarPrevia()}}
+function amostrasArea(a){const out=[];
+  if(a.t==='c'){const [lo,la]=a.c,k=111320,cs=Math.cos(la*Math.PI/180);out.push([lo,la]);
+    [[.33,8],[.66,14],[.97,22]].forEach(([f,n])=>{for(let i=0;i<n;i++){const t=i/n*2*Math.PI;out.push([lo+Math.cos(t)*a.r*f/(k*cs),la+Math.sin(t)*a.r*f/k])}});return out}
+  const P=a.pts,xs=P.map(q=>q[0]),ys=P.map(q=>q[1]),x0=Math.min(...xs),x1=Math.max(...xs),y0=Math.min(...ys),y1=Math.max(...ys);
+  const dentro=(x,y)=>{let c=false;for(let i=0,j=P.length-1;i<P.length;j=i++){const a1=P[i],b1=P[j];if((a1[1]>y)!==(b1[1]>y)&&x<(b1[0]-a1[0])*(y-a1[1])/(b1[1]-a1[1])+a1[0])c=!c}return c};
+  P.forEach(q=>out.push(q));
+  for(let n=12;n>=3;n--){const g=[];for(let i=0;i<=n;i++)for(let j=0;j<=n;j++){const x=x0+(x1-x0)*i/n,y=y0+(y1-y0)*j/n;if(dentro(x,y))g.push([x,y])}
+    if(g.length+out.length<=100||n===3){return out.concat(g).slice(0,100)}}
+  return out}
+async function pontoMaisBaixo(){const a=areaBase();if(!a)return;
+  const ab=JSON.stringify(a);if(DECOL&&DECOL.sig===ab){DECOL=null;desenharArea();pvUlt='';agendarPrevia();return}
+  $('pvlow').disabled=true;$('pvlowmsg').textContent='Medindo o terreno em vários pontos da área…';
+  try{const pts=amostrasArea(a);
+    const q='latitude='+pts.map(p=>p[1].toFixed(6)).join(',')+'&longitude='+pts.map(p=>p[0].toFixed(6)).join(',');
+    const j=await fetch('https://api.open-meteo.com/v1/elevation?'+q).then(r=>{if(!r.ok)throw new Error('serviço de elevação respondeu '+r.status);return r.json()});
+    const el=j.elevation||[];let im=-1;el.forEach((e,i)=>{if(isFinite(e)&&(im<0||e<el[im]))im=i});if(im<0)throw new Error('sem dados de elevação');
+    const cen=a.t==='c'?Math.round(el[0]):null;
+    DECOL={sig:ab,d:r6(pts[im]),elev:Math.round(el[im]),cen:cen!=null&&cen!==Math.round(el[im])?cen:(PVR&&PVR.elev!==Math.round(el[im])&&!PVR.decol?PVR.elev:null)};
+    desenharArea();pvUlt='';agendarPrevia()}
+  catch(e){$('pvlowmsg').textContent='Não consegui medir agora: '+(e.message||e)}
+  finally{$('pvlow').disabled=false}}
+$('pvlow').onclick=pontoMaisBaixo;
 
 /* ---------- clonar / renovar pedido ---------- */
 let CLONE=null;
