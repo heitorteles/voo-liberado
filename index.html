@@ -79,6 +79,7 @@ dt{color:var(--mute)}dd{margin:0;overflow-wrap:anywhere}
 .chips{display:flex;gap:8px;overflow-x:auto;padding-bottom:4px;margin:0 0 12px;-webkit-overflow-scrolling:touch}
 .chips .btn{flex:none;font-size:14px}
 label,legend{display:block;font-size:14px;color:var(--mute);margin:10px 0 4px;padding:0}
+.f textarea{width:100%;box-sizing:border-box;font:inherit;font-size:16px;border-radius:12px;border:1px solid var(--line);background:var(--bg);color:var(--ink);padding:10px 12px;resize:vertical}
 .f input{width:100%;min-height:44px;font:inherit;font-size:16px;border-radius:12px;border:1px solid var(--line);background:var(--bg);color:var(--ink);padding:10px 12px}
 .seg{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;border:0;padding:0;margin:0}
 .seg.two{grid-template-columns:repeat(2,minmax(0,1fr))}
@@ -206,7 +207,8 @@ html{overflow-x:hidden}.sheet{width:100%;max-width:100vw;overflow-x:hidden}
         <input type="radio" name="nperfil" id="pp" value="Padrão"><label for="pp">Padrão</label>
         <input type="radio" name="nperfil" id="pa" value="Os dois" checked><label for="pa">Os dois</label>
       </fieldset>
-      <label for="nobs">Observações</label><input id="nobs" placeholder="Horário, cliente, altura desejada…">
+      <label for="nobs">Observações (vão no pedido do SARPAS)</label><textarea id="nobs" rows="3" maxlength="600" placeholder="Ex.: filmagem de comercial ou série. Em branco = captação de imagens aéreas para produção audiovisual."></textarea>
+      <button class="lnk" type="button" id="nobscc">Usar texto de câmera car (voo baixo sobre a via)</button>
       <div class="row"><button class="btn p" type="submit" id="nenviar">Enviar pedido</button></div>
       <p class="small" id="nmsg" aria-live="polite" style="white-space:pre-line"></p>
     </form>
@@ -614,11 +616,11 @@ function pvInfoBaixo(r,cat){PVR=r;const ab=areaBase(),ativo=DECOL&&ab&&DECOL.sig
   $('pvlowbox').classList.toggle('hide',!mostra);if(!mostra)return;
   $('pvlow').classList.toggle('on',!!ativo);$('pvlow').lastChild.textContent=ativo?'Decolando do ponto mais baixo · voltar ao centro':'Decolar do ponto mais baixo';
   let t=ativo?'Decolagem no ponto mais baixo da área: '+DECOL.elev+' m acima do mar'+(DECOL.cen!=null?' (o centro está a '+DECOL.cen+' m)':'')+'. ':'';
-  if(helis.length){const hm=helis.reduce((a,b)=>b[1]<a[1]?b:a),livre=Math.floor(hm[1]-r.elev-2);
-    t+='Heliponto mais baixo: '+hm[0]+' a '+hm[1]+' m. '+(livre>=1?'Decolando a '+r.elev+' m, dá para voar até '+livre+' m de altura sem passar dele.':'Mesmo no chão a '+r.elev+' m, o voo ficaria acima dele.');
+  if(helis.length){const hm=helis.reduce((a,b)=>b[1]<a[1]?b:a),livre=Math.floor(hm[1]-r.elev-1);
+    t+='Heliponto mais baixo: '+hm[0]+' a '+hm[1]+' m. '+(livre>=1?'Decolando a '+r.elev+' m, dá para voar até '+livre+' m de altura e ficar pelo menos 1 m abaixo dele.':'Mesmo no chão a '+r.elev+' m, o voo ficaria acima dele.');
     if(livre>=1&&livre!==r.alt)t+=' <button class="lnk" type="button" id="pvusa">Usar '+Math.min(120,livre)+' m</button>'}
   const falta=(r.helis||[]).filter(h=>!(h[1]>0)).map(h=>h[0]);if(falta.length)t+=' Sem elevação no ROTAER (fora da conta, confira): '+falta.join(', ')+'.';
-  $('pvlowmsg').innerHTML=t;const u=$('pvusa');if(u)u.onclick=()=>{$('pvalt').value=Math.min(120,Math.floor(helis.reduce((a,b)=>b[1]<a[1]?b:a)[1]-r.elev-2));pvUlt='';if(AREA)$('naltmax').value=$('pvalt').value;agendarPrevia()}}
+  $('pvlowmsg').innerHTML=t;const u=$('pvusa');if(u)u.onclick=()=>{$('pvalt').value=Math.min(120,Math.floor(helis.reduce((a,b)=>b[1]<a[1]?b:a)[1]-r.elev-1));pvUlt='';if(AREA)$('naltmax').value=$('pvalt').value;agendarPrevia()}}
 function amostrasArea(a){const out=[];
   if(a.t==='c'){const [lo,la]=a.c,k=111320,cs=Math.cos(la*Math.PI/180);out.push([lo,la]);
     [[.33,8],[.66,14],[.97,22]].forEach(([f,n])=>{for(let i=0;i<n;i++){const t=i/n*2*Math.PI;out.push([lo+Math.cos(t)*a.r*f/(k*cs),la+Math.sin(t)*a.r*f/k])}});return out}
@@ -763,6 +765,7 @@ function desenharPessoas(novo){const box=$('admbox');
 async function compartilharCodigo(nome,cod){const t=`${nome}, seu acesso ao Voo Liberado:\n${location.origin+location.pathname}\nCódigo: ${cod}`;
   if(navigator.share){try{await navigator.share({text:t});return}catch(e){if(e&&e.name==='AbortError')return}}
   try{await navigator.clipboard.writeText(t);$('pesmsg').textContent='Mensagem com o código copiada.'}catch(e){$('pesmsg').textContent='Código: '+cod}}
+$('nobscc').onclick=()=>{const t='Operação de captação de imagens aéreas para produção audiovisual. A aeronave voará em baixa altura sobre a via, em set de filmagem controlado e com autorização dos órgãos de trânsito, a fim de filmar um veículo na via, respeitando o teto operacional informado abaixo do heliponto.';const o=$('nobs');o.value=o.value.trim()?o.value.trim()+' '+t:t;o.focus()};
 $('pesbt').onclick=()=>setPes(true);$('pesx').onclick=()=>setPes(false);
 $('pespg').addEventListener('click',e=>{if(e.target===$('pespg'))setPes(false)});
 document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!$('pespg').classList.contains('hide'))setPes(false)});
